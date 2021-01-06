@@ -1,0 +1,173 @@
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 49716393
+    name: "IngressPipeImpl.t_acl"
+    alias: "t_acl"
+  }
+  match_fields {
+    id: 1
+    name: "standard_metadata.ingress_port"
+    bitwidth: 9
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ethernet.src_addr"
+    bitwidth: 48
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 3
+    name: "hdr.ethernet.dst_addr"
+    bitwidth: 48
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "hdr.ethernet.ether_type"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 5
+    name: "hdr.ipv4.src_addr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 6
+    name: "hdr.ipv4.dst_addr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 7
+    name: "hdr.ipv4.protocol"
+    bitwidth: 8
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 8
+    name: "hdr.tcp.src_port"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 9
+    name: "hdr.tcp.dst_port"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 10
+    name: "hdr.udp.src_port"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 11
+    name: "hdr.udp.dst_port"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 21307162
+  }
+  action_refs {
+    id: 20629749
+  }
+  action_refs {
+    id: 26940841
+  }
+  direct_resource_ids: 330580408
+  size: 1024
+}
+tables {
+  preamble {
+    id: 36520001
+    name: "IngressPipeImpl.t_fwd"
+    alias: "t_fwd"
+  }
+  match_fields {
+    id: 1
+    name: "standard_metadata.ingress_port"
+    bitwidth: 9
+    match_type: EXACT
+  }
+  action_refs {
+    id: 22477748
+  }
+  action_refs {
+    id: 28396054
+  }
+  direct_resource_ids: 335029772
+  size: 1024
+  is_const_table: true
+}
+actions {
+  preamble {
+    id: 21307162
+    name: "IngressPipeImpl.allow"
+    alias: "allow"
+  }
+}
+actions {
+  preamble {
+    id: 20629749
+    name: "IngressPipeImpl.deny"
+    alias: "deny"
+  }
+}
+actions {
+  preamble {
+    id: 26940841
+    name: "IngressPipeImpl.nop"
+    alias: "nop"
+  }
+}
+actions {
+  preamble {
+    id: 28396054
+    name: "IngressPipeImpl.drop"
+    alias: "drop"
+  }
+}
+actions {
+  preamble {
+    id: 22477748
+    name: "IngressPipeImpl.fwd"
+    alias: "fwd"
+  }
+  params {
+    id: 1
+    name: "port"
+    bitwidth: 9
+  }
+}
+direct_counters {
+  preamble {
+    id: 330580408
+    name: "IngressPipeImpl.t_acl_counter"
+    alias: "t_acl_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 49716393
+}
+direct_counters {
+  preamble {
+    id: 335029772
+    name: "IngressPipeImpl.t_fwd_counter"
+    alias: "t_fwd_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 36520001
+}
+type_info {
+}
