@@ -28,7 +28,7 @@ const bit<8> IP_PROTOCOLS_VRRP       = 112;
 *********************** H E A D E R S  ***********************************
 *************************************************************************/
 
-typedef bit<9>  port_t;
+typedef bit<16>  port_t;
 typedef bit<48> mac_addr_t;
 typedef bit<32> ip4_addr_t;
 
@@ -189,7 +189,7 @@ control IngressPipeImpl(inout headers hdr,
         counters = t_acl_counter;
     }
 
-
+    /*
     direct_counter(CounterType.packets_and_bytes) t_fwd_counter;
 
     action drop() {
@@ -218,6 +218,7 @@ control IngressPipeImpl(inout headers hdr,
             (0x1) : fwd(0);
         }
     }
+    */
 
     apply {
 
@@ -230,7 +231,12 @@ control IngressPipeImpl(inout headers hdr,
             }
         }
 
-        t_fwd.apply();
+        //t_fwd.apply();
+        if (standard_metadata.ingress_port == 0) {
+            standard_metadata.egress_spec = 1;
+        } else {
+            standard_metadata.egress_spec = 0;
+        }
 
     }
 }
