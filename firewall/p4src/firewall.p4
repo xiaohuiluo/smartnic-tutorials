@@ -184,12 +184,12 @@ control IngressPipeImpl(inout headers hdr,
             deny;
             nop;
         }
-        size = 5000;
+        size = 1000;
         default_action = nop();
         counters = t_acl_counter;
     }
 
-    /*
+    
     direct_counter(CounterType.packets_and_bytes) t_fwd_counter;
 
     action drop() {
@@ -212,14 +212,16 @@ control IngressPipeImpl(inout headers hdr,
         }
         default_action = drop();
         counters = t_fwd_counter;
-        
+        size = 2;
+        /*
         const entries = {
             (0x0) : fwd(1);
             (0x1) : fwd(0);
         }
+        */
         
     }
-    */
+    
 
     apply {
 
@@ -232,12 +234,7 @@ control IngressPipeImpl(inout headers hdr,
             }
         }
 
-        if (standard_metadata.ingress_port == 0) {
-            standard_metadata.egress_spec = 1;
-        }
-        else {
-            standard_metadata.egress_spec = 0;
-        }
+        t_fwd.apply();
 
     }
 }

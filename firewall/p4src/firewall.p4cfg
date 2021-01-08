@@ -1,0 +1,40 @@
+{
+    "tables": {
+        "ingress::t_fwd": {
+            "rules": [
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "1"
+                            }
+                        }, 
+                        "type": "ingress::fwd"
+                    }, 
+                    "name": "fwd0to1", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "0"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "0"
+                            }
+                        }, 
+                        "type": "ingress::fwd"
+                    }, 
+                    "name": "fwd1to0", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "1"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
