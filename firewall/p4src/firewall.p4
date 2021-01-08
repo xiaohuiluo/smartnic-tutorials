@@ -212,11 +212,12 @@ control IngressPipeImpl(inout headers hdr,
         }
         default_action = drop();
         counters = t_fwd_counter;
-
+        
         const entries = {
             (0x0) : fwd(1);
             (0x1) : fwd(0);
         }
+        
     }
     */
 
@@ -231,10 +232,10 @@ control IngressPipeImpl(inout headers hdr,
             }
         }
 
-        //t_fwd.apply();
         if (standard_metadata.ingress_port == 0) {
             standard_metadata.egress_spec = 1;
-        } else {
+        }
+        else {
             standard_metadata.egress_spec = 0;
         }
 
