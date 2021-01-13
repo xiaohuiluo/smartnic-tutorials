@@ -88,7 +88,34 @@
    "directResourceIds": [
     302051305
    ],
-   "size": "5000"
+   "size": "1000"
+  },
+  {
+   "preamble": {
+    "id": 33604878,
+    "name": "t_fwd",
+    "alias": "t_fwd"
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "standard_metadata.ingress_port",
+     "bitwidth": 16,
+     "matchType": "EXACT"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16818317
+    },
+    {
+     "id": 16793508
+    }
+   ],
+   "directResourceIds": [
+    302006365
+   ],
+   "size": "2"
   }
  ],
  "actions": [
@@ -112,6 +139,27 @@
     "name": "nop",
     "alias": "nop"
    }
+  },
+  {
+   "preamble": {
+    "id": 16793508,
+    "name": "drop",
+    "alias": "drop"
+   }
+  },
+  {
+   "preamble": {
+    "id": 16818317,
+    "name": "fwd",
+    "alias": "fwd"
+   },
+   "params": [
+    {
+     "id": 1,
+     "name": "port",
+     "bitwidth": 16
+    }
+   ]
   }
  ],
  "directCounters": [
@@ -125,6 +173,17 @@
     "unit": "BOTH"
    },
    "directTableId": 33557597
+  },
+  {
+   "preamble": {
+    "id": 302006365,
+    "name": "t_fwd_counter",
+    "alias": "t_fwd_counter"
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33604878
   }
  ]
 }
