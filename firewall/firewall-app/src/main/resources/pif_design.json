@@ -1,0 +1,998 @@
+{
+    "generic": {
+        "tables_info": {
+            "ingress::t_fwd": {
+                "max_entries": 3, 
+                "allowed_actions": [
+                    "ingress::fwd", 
+                    "ingress::drop"
+                ], 
+                "name": "ingress::t_fwd"
+            }, 
+            "ingress::t_acl": {
+                "max_entries": 1001, 
+                "allowed_actions": [
+                    "ingress::allow", 
+                    "ingress::deny", 
+                    "ingress::nop"
+                ], 
+                "name": "ingress::t_acl"
+            }
+        }, 
+        "action_info": {
+            "ingress::nop": {
+                "name": "ingress::nop", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }
+            }, 
+            "ingress::deny": {
+                "name": "ingress::deny", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }
+            }, 
+            "ingress::fwd": {
+                "name": "ingress::fwd", 
+                "action_data": {
+                    "port": {
+                        "size": 16
+                    }, 
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }
+            }, 
+            "ingress::allow": {
+                "name": "ingress::allow", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }
+            }, 
+            "ingress::drop": {
+                "name": "ingress::drop", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }
+            }
+        }
+    }, 
+    "vendor": {
+        "register_info": {
+            "t_acl_counter": {
+                "count": 1, 
+                "layout": [
+                    {
+                        "layout": [
+                            {
+                                "width": 32, 
+                                "lmbitoff": 0, 
+                                "name": "value_bytes", 
+                                "fldbitoff": 32
+                            }, 
+                            {
+                                "width": 32, 
+                                "lmbitoff": 32, 
+                                "name": "__value_bytes_1", 
+                                "fldbitoff": 0
+                            }
+                        ], 
+                        "name": "value_bytes", 
+                        "lmoff": 0, 
+                        "width": 64, 
+                        "cname": "value_bytes", 
+                        "attributes": {}
+                    }, 
+                    {
+                        "layout": [
+                            {
+                                "width": 32, 
+                                "lmbitoff": 64, 
+                                "name": "value_packets", 
+                                "fldbitoff": 32
+                            }, 
+                            {
+                                "width": 32, 
+                                "lmbitoff": 96, 
+                                "name": "__value_packets_1", 
+                                "fldbitoff": 0
+                            }
+                        ], 
+                        "name": "value_packets", 
+                        "lmoff": 64, 
+                        "width": 64, 
+                        "cname": "value_packets", 
+                        "attributes": {}
+                    }
+                ], 
+                "name": "t_acl_counter", 
+                "rtsym": "_pif_register_t_acl_counter", 
+                "table_size": 1001, 
+                "table": "ingress::t_acl", 
+                "hidden": 0, 
+                "szlw": 4, 
+                "class": "direct"
+            }, 
+            "t_fwd_counter": {
+                "count": 1, 
+                "layout": [
+                    {
+                        "layout": [
+                            {
+                                "width": 32, 
+                                "lmbitoff": 0, 
+                                "name": "value_bytes", 
+                                "fldbitoff": 32
+                            }, 
+                            {
+                                "width": 32, 
+                                "lmbitoff": 32, 
+                                "name": "__value_bytes_1", 
+                                "fldbitoff": 0
+                            }
+                        ], 
+                        "name": "value_bytes", 
+                        "lmoff": 0, 
+                        "width": 64, 
+                        "cname": "value_bytes", 
+                        "attributes": {}
+                    }, 
+                    {
+                        "layout": [
+                            {
+                                "width": 32, 
+                                "lmbitoff": 64, 
+                                "name": "value_packets", 
+                                "fldbitoff": 32
+                            }, 
+                            {
+                                "width": 32, 
+                                "lmbitoff": 96, 
+                                "name": "__value_packets_1", 
+                                "fldbitoff": 0
+                            }
+                        ], 
+                        "name": "value_packets", 
+                        "lmoff": 64, 
+                        "width": 64, 
+                        "cname": "value_packets", 
+                        "attributes": {}
+                    }
+                ], 
+                "name": "t_fwd_counter", 
+                "rtsym": "_pif_register_t_fwd_counter", 
+                "table_size": 3, 
+                "table": "ingress::t_fwd", 
+                "hidden": 0, 
+                "szlw": 4, 
+                "class": "direct"
+            }
+        }, 
+        "backend_source_info": {
+            "date": "2021/01/12 09:00:22", 
+            "source_files": "C:\\Users\\xiaoh\\NFP_SDK\\firewall\\out\\firewall.yml"
+        }, 
+        "counters_info": {
+            "t_acl_counter_bytes": {
+                "field": "value_bytes", 
+                "register": "t_acl_counter", 
+                "type": "bytes"
+            }, 
+            "t_fwd_counter_packets": {
+                "field": "value_packets", 
+                "register": "t_fwd_counter", 
+                "type": "packets"
+            }, 
+            "t_acl_counter_packets": {
+                "field": "value_packets", 
+                "register": "t_acl_counter", 
+                "type": "packets"
+            }, 
+            "t_fwd_counter_bytes": {
+                "field": "value_bytes", 
+                "register": "t_fwd_counter", 
+                "type": "bytes"
+            }
+        }, 
+        "meter_info": {}, 
+        "frontend_source_info": {
+            "date": "2021/01/12 09:00:21", 
+            "source_files": [
+                "C:/Users/xiaoh/NFP_SDK/firewall/firewall.p4"
+            ]
+        }, 
+        "tables_info": {
+            "ingress::t_fwd": {
+                "name": "ingress::t_fwd", 
+                "constant_default": false, 
+                "matches": [
+                    {
+                        "field": "standard_metadata.ingress_port", 
+                        "type": "exact", 
+                        "class": "field", 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "ingress_port", 
+                                "lmbitoff": 560
+                            }
+                        ]
+                    }
+                ], 
+                "allowed_actions": [
+                    "ingress::fwd", 
+                    "ingress::drop"
+                ], 
+                "id": 0, 
+                "max_entries": 3, 
+                "data_shift": 4, 
+                "rtsym": "_pif_actiondata_table_0_ingress__t_fwd", 
+                "default_entry": {
+                    "action": {
+                        "data": {}, 
+                        "type": "ingress::drop"
+                    }, 
+                    "name": "application_default"
+                }, 
+                "data_size": 16
+            }, 
+            "ingress::t_acl": {
+                "name": "ingress::t_acl", 
+                "constant_default": false, 
+                "matches": [
+                    {
+                        "field": "ethernet.ether_type", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "ethernet", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 1, 
+                                    "name": "ethernet_valid", 
+                                    "value": 1, 
+                                    "lmbitoff": 30
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "ether_type", 
+                                "lmbitoff": 144
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "ethernet.dst_addr", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "ethernet", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 1, 
+                                    "name": "ethernet_valid", 
+                                    "value": 1, 
+                                    "lmbitoff": 30
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 32, 
+                                "fldbitoff": 16, 
+                                "name": "dst_addr", 
+                                "lmbitoff": 32
+                            }, 
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "__dst_addr_1", 
+                                "lmbitoff": 80
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "ipv4.src_addr", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "ipv4", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 1, 
+                                    "name": "ipv4_valid", 
+                                    "value": 1, 
+                                    "lmbitoff": 27
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 32, 
+                                "fldbitoff": 0, 
+                                "name": "src_addr", 
+                                "lmbitoff": 256
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "ipv4.protocol", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "ipv4", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 1, 
+                                    "name": "ipv4_valid", 
+                                    "value": 1, 
+                                    "lmbitoff": 27
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 8, 
+                                "fldbitoff": 0, 
+                                "name": "protocol", 
+                                "lmbitoff": 240
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "udp.src_port", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "udp", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 2, 
+                                    "name": "udp_valid", 
+                                    "value": 2, 
+                                    "lmbitoff": 23
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "src_port", 
+                                "lmbitoff": 336
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "tcp.dst_port", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "tcp", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 2, 
+                                    "name": "tcp_valid", 
+                                    "value": 3, 
+                                    "lmbitoff": 23
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "dst_port", 
+                                "lmbitoff": 320
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "standard_metadata.ingress_port", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "ingress_port", 
+                                "lmbitoff": 560
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "ipv4.dst_addr", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "ipv4", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 1, 
+                                    "name": "ipv4_valid", 
+                                    "value": 1, 
+                                    "lmbitoff": 27
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 32, 
+                                "fldbitoff": 0, 
+                                "name": "dst_addr", 
+                                "lmbitoff": 288
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "udp.dst_port", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "udp", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 2, 
+                                    "name": "udp_valid", 
+                                    "value": 2, 
+                                    "lmbitoff": 23
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "dst_port", 
+                                "lmbitoff": 320
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "ethernet.src_addr", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "ethernet", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 1, 
+                                    "name": "ethernet_valid", 
+                                    "value": 1, 
+                                    "lmbitoff": 30
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 32, 
+                                "name": "src_addr", 
+                                "lmbitoff": 64
+                            }, 
+                            {
+                                "width": 32, 
+                                "fldbitoff": 0, 
+                                "name": "__src_addr_1", 
+                                "lmbitoff": 96
+                            }
+                        ]
+                    }, 
+                    {
+                        "field": "tcp.src_port", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "tcp", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 2, 
+                                    "name": "tcp_valid", 
+                                    "value": 3, 
+                                    "lmbitoff": 23
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "src_port", 
+                                "lmbitoff": 336
+                            }
+                        ]
+                    }
+                ], 
+                "allowed_actions": [
+                    "ingress::allow", 
+                    "ingress::deny", 
+                    "ingress::nop"
+                ], 
+                "id": 1, 
+                "max_entries": 1001, 
+                "data_shift": 4, 
+                "rtsym": "_pif_actiondata_table_1_ingress__t_acl", 
+                "default_entry": {
+                    "action": {
+                        "data": {}, 
+                        "type": "ingress::nop"
+                    }, 
+                    "name": "application_default"
+                }, 
+                "data_size": 16
+            }
+        }, 
+        "action_info": {
+            "ingress::nop": {
+                "timeoutno_field": "", 
+                "name": "ingress::nop", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }, 
+                "ruleno_field": "__pif_rule_no", 
+                "action_data_packed": [
+                    {
+                        "actiondata": "__pif_rule_no", 
+                        "name": "__pif_rule_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "__pif_table_no", 
+                        "name": "__pif_table_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }
+                ], 
+                "noeffect": true, 
+                "id": 0, 
+                "tableno_field": "__pif_table_no"
+            }, 
+            "ingress::deny": {
+                "timeoutno_field": "", 
+                "name": "ingress::deny", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }, 
+                "ruleno_field": "__pif_rule_no", 
+                "action_data_packed": [
+                    {
+                        "actiondata": "__pif_rule_no", 
+                        "name": "__pif_rule_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "__pif_table_no", 
+                        "name": "__pif_table_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }
+                ], 
+                "noeffect": false, 
+                "id": 1, 
+                "tableno_field": "__pif_table_no"
+            }, 
+            "ingress::fwd": {
+                "timeoutno_field": "", 
+                "name": "ingress::fwd", 
+                "action_data": {
+                    "port": {
+                        "size": 16
+                    }, 
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }, 
+                "ruleno_field": "__pif_rule_no", 
+                "action_data_packed": [
+                    {
+                        "actiondata": "__pif_rule_no", 
+                        "name": "__pif_rule_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "__pif_table_no", 
+                        "name": "__pif_table_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "port", 
+                        "name": "port", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 2, 
+                        "pad_type": "uint16_t", 
+                        "split": false, 
+                        "size": 16
+                    }, 
+                    {
+                        "pad_cnt": 2, 
+                        "pad_type": "uint8_t", 
+                        "actiondata": null, 
+                        "name": "__pif_padding", 
+                        "split": false, 
+                        "doc": "padding", 
+                        "pad_szbytes": 1, 
+                        "size": 8
+                    }
+                ], 
+                "noeffect": false, 
+                "id": 2, 
+                "tableno_field": "__pif_table_no"
+            }, 
+            "ingress::allow": {
+                "timeoutno_field": "", 
+                "name": "ingress::allow", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }, 
+                "ruleno_field": "__pif_rule_no", 
+                "action_data_packed": [
+                    {
+                        "actiondata": "__pif_rule_no", 
+                        "name": "__pif_rule_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "__pif_table_no", 
+                        "name": "__pif_table_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }
+                ], 
+                "noeffect": true, 
+                "id": 3, 
+                "tableno_field": "__pif_table_no"
+            }, 
+            "ingress::drop": {
+                "timeoutno_field": "", 
+                "name": "ingress::drop", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }, 
+                "ruleno_field": "__pif_rule_no", 
+                "action_data_packed": [
+                    {
+                        "actiondata": "__pif_rule_no", 
+                        "name": "__pif_rule_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "__pif_table_no", 
+                        "name": "__pif_table_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }
+                ], 
+                "noeffect": false, 
+                "id": 4, 
+                "tableno_field": "__pif_table_no"
+            }
+        }, 
+        "multicast": {
+            "table_rtsym": "_pif_mcast_table", 
+            "group_count": 16, 
+            "group_size": 16
+        }, 
+        "custom_errors": {
+            "NoError": 1, 
+            "PacketTooShort": 2, 
+            "NoMatch": 3, 
+            "StackOutOfBounds": 4, 
+            "HeaderTooShort": 5, 
+            "ParserTimeout": 6
+        }, 
+        "build_uuid": [
+            2156887959, 
+            3210156118, 
+            1421087211, 
+            2584221440
+        ], 
+        "digests_info": {}, 
+        "parser_value_set_info": {}
+    }, 
+    "p4info": {
+        "tables": [
+            {
+                "actionRefs": [
+                    {
+                        "id": 16824701
+                    }, 
+                    {
+                        "id": 16824084
+                    }, 
+                    {
+                        "id": 16819938
+                    }
+                ], 
+                "matchFields": [
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 16, 
+                        "id": 1, 
+                        "name": "standard_metadata.ingress_port"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 48, 
+                        "id": 2, 
+                        "name": "hdr.ethernet.src_addr"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 48, 
+                        "id": 3, 
+                        "name": "hdr.ethernet.dst_addr"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 16, 
+                        "id": 4, 
+                        "name": "hdr.ethernet.ether_type"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 32, 
+                        "id": 5, 
+                        "name": "hdr.ipv4.src_addr"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 32, 
+                        "id": 6, 
+                        "name": "hdr.ipv4.dst_addr"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 8, 
+                        "id": 7, 
+                        "name": "hdr.ipv4.protocol"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 16, 
+                        "id": 8, 
+                        "name": "hdr.tcp.src_port"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 16, 
+                        "id": 9, 
+                        "name": "hdr.tcp.dst_port"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 16, 
+                        "id": 10, 
+                        "name": "hdr.udp.src_port"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 16, 
+                        "id": 11, 
+                        "name": "hdr.udp.dst_port"
+                    }
+                ], 
+                "preamble": {
+                    "alias": "t_acl", 
+                    "id": 33557597, 
+                    "name": "t_acl"
+                }, 
+                "directResourceIds": [
+                    302051305
+                ], 
+                "size": "1000"
+            }, 
+            {
+                "actionRefs": [
+                    {
+                        "id": 16818317
+                    }, 
+                    {
+                        "id": 16793508
+                    }
+                ], 
+                "matchFields": [
+                    {
+                        "matchType": "EXACT", 
+                        "bitwidth": 16, 
+                        "id": 1, 
+                        "name": "standard_metadata.ingress_port"
+                    }
+                ], 
+                "preamble": {
+                    "alias": "t_fwd", 
+                    "id": 33604878, 
+                    "name": "t_fwd"
+                }, 
+                "directResourceIds": [
+                    302006365
+                ], 
+                "size": "2"
+            }
+        ], 
+        "directCounters": [
+            {
+                "preamble": {
+                    "alias": "t_acl_counter", 
+                    "id": 302051305, 
+                    "name": "t_acl_counter"
+                }, 
+                "spec": {
+                    "unit": "BOTH"
+                }, 
+                "directTableId": 33557597
+            }, 
+            {
+                "preamble": {
+                    "alias": "t_fwd_counter", 
+                    "id": 302006365, 
+                    "name": "t_fwd_counter"
+                }, 
+                "spec": {
+                    "unit": "BOTH"
+                }, 
+                "directTableId": 33604878
+            }
+        ], 
+        "actions": [
+            {
+                "preamble": {
+                    "alias": "allow", 
+                    "id": 16824701, 
+                    "name": "allow"
+                }
+            }, 
+            {
+                "preamble": {
+                    "alias": "deny", 
+                    "id": 16824084, 
+                    "name": "deny"
+                }
+            }, 
+            {
+                "preamble": {
+                    "alias": "nop", 
+                    "id": 16819938, 
+                    "name": "nop"
+                }
+            }, 
+            {
+                "preamble": {
+                    "alias": "drop", 
+                    "id": 16793508, 
+                    "name": "drop"
+                }
+            }, 
+            {
+                "params": [
+                    {
+                        "bitwidth": 16, 
+                        "id": 1, 
+                        "name": "port"
+                    }
+                ], 
+                "preamble": {
+                    "alias": "fwd", 
+                    "id": 16818317, 
+                    "name": "fwd"
+                }
+            }
+        ]
+    }
+}

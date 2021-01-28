@@ -1,0 +1,189 @@
+{
+ "tables": [
+  {
+   "preamble": {
+    "id": 33557597,
+    "name": "t_acl",
+    "alias": "t_acl"
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "standard_metadata.ingress_port",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 2,
+     "name": "hdr.ethernet.src_addr",
+     "bitwidth": 48,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 3,
+     "name": "hdr.ethernet.dst_addr",
+     "bitwidth": 48,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 4,
+     "name": "hdr.ethernet.ether_type",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 5,
+     "name": "hdr.ipv4.src_addr",
+     "bitwidth": 32,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 6,
+     "name": "hdr.ipv4.dst_addr",
+     "bitwidth": 32,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 7,
+     "name": "hdr.ipv4.protocol",
+     "bitwidth": 8,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 8,
+     "name": "hdr.tcp.src_port",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 9,
+     "name": "hdr.tcp.dst_port",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 10,
+     "name": "hdr.udp.src_port",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    },
+    {
+     "id": 11,
+     "name": "hdr.udp.dst_port",
+     "bitwidth": 16,
+     "matchType": "TERNARY"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16824701
+    },
+    {
+     "id": 16824084
+    },
+    {
+     "id": 16819938
+    }
+   ],
+   "directResourceIds": [
+    302051305
+   ],
+   "size": "1000"
+  },
+  {
+   "preamble": {
+    "id": 33604878,
+    "name": "t_fwd",
+    "alias": "t_fwd"
+   },
+   "matchFields": [
+    {
+     "id": 1,
+     "name": "standard_metadata.ingress_port",
+     "bitwidth": 16,
+     "matchType": "EXACT"
+    }
+   ],
+   "actionRefs": [
+    {
+     "id": 16818317
+    },
+    {
+     "id": 16793508
+    }
+   ],
+   "directResourceIds": [
+    302006365
+   ],
+   "size": "2"
+  }
+ ],
+ "actions": [
+  {
+   "preamble": {
+    "id": 16824701,
+    "name": "allow",
+    "alias": "allow"
+   }
+  },
+  {
+   "preamble": {
+    "id": 16824084,
+    "name": "deny",
+    "alias": "deny"
+   }
+  },
+  {
+   "preamble": {
+    "id": 16819938,
+    "name": "nop",
+    "alias": "nop"
+   }
+  },
+  {
+   "preamble": {
+    "id": 16793508,
+    "name": "drop",
+    "alias": "drop"
+   }
+  },
+  {
+   "preamble": {
+    "id": 16818317,
+    "name": "fwd",
+    "alias": "fwd"
+   },
+   "params": [
+    {
+     "id": 1,
+     "name": "port",
+     "bitwidth": 16
+    }
+   ]
+  }
+ ],
+ "directCounters": [
+  {
+   "preamble": {
+    "id": 302051305,
+    "name": "t_acl_counter",
+    "alias": "t_acl_counter"
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33557597
+  },
+  {
+   "preamble": {
+    "id": 302006365,
+    "name": "t_fwd_counter",
+    "alias": "t_fwd_counter"
+   },
+   "spec": {
+    "unit": "BOTH"
+   },
+   "directTableId": 33604878
+  }
+ ]
+}

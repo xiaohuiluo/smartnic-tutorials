@@ -1,0 +1,17 @@
+*~
+*.class
+.classpath
+.project
+.ijwb
+.pydevproject
+.settings
+.javacp*
+.checkstyle
+target
+*.iml
+*.pyc
+.idea/
+*.DS_Store
+.vscode
+*.fxs
+
