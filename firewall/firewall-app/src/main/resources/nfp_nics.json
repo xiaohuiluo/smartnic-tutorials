@@ -1,0 +1,14 @@
+{
+  "apps": {
+    "cn.pcl.firewall": {
+      "nfp_nics":  [
+        {
+          "dp_id": "device:nfp-nic1",
+          "driver": "rtecli",
+          "rte_host": "192.168.67.143",
+          "rte_port": "20206"
+        }
+      ]
+    }
+  }
+}
