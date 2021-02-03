@@ -24,12 +24,18 @@ public class NfpNicCfg extends Config<ApplicationId> {
 
     public static final String RTE_PORT = "rte_port";
 
+    public static final String NFFW_PATH = "nffw_path";
+
+    public static final String DESIGN_PATH = "design_path";
+
+    public static final String P4CFG_PATH = "p4cfg_path";
+
     private static final String CONFIG_VALUE_ERROR = "Error parsing config value";
 
     @Override
     public boolean isValid() {
         for (JsonNode node : array) {
-            if (!(hasOnlyFields((ObjectNode) node, DP_ID, DRIVER, RTE_HOST, RTE_PORT))) {
+            if (!(hasOnlyFields((ObjectNode) node, DP_ID, DRIVER, RTE_HOST, RTE_PORT, NFFW_PATH, DESIGN_PATH, P4CFG_PATH, CONFIG_VALUE_ERROR))) {
                 return false;
             }
 
@@ -54,6 +60,21 @@ public class NfpNicCfg extends Config<ApplicationId> {
             if (!rtePort.isTextual() || (rteHost.intValue() >= 1 && rteHost.intValue() <= 65535)) {
                 return false;
             }
+
+            JsonNode nffwPath = node.path(NFFW_PATH);
+            if (!nffwPath.isTextual()) {
+                return false;
+            }
+
+            JsonNode designPath = node.path(DESIGN_PATH);
+            if (!designPath.isTextual()) {
+                return false;
+            }
+
+            JsonNode p4cfgPath = node.path(P4CFG_PATH);
+            if (!p4cfgPath.isTextual()) {
+                return false;
+            }
         }
 
         return true;
@@ -67,7 +88,10 @@ public class NfpNicCfg extends Config<ApplicationId> {
                 String driver = node.path(DRIVER).asText(null);
                 String rteHost = node.path(RTE_HOST).asText(null);
                 String rtePort = node.path(RTE_PORT).asText(null);
-                nfpNicDevices.add(new NfpNicDevice(dpId, driver, rteHost, rtePort));
+                String nffwPath = node.path(NFFW_PATH).asText(null);
+                String designPath = node.path(DESIGN_PATH).asText(null);
+                String p4cfgPath = node.path(P4CFG_PATH).asText(null);
+                nfpNicDevices.add(new NfpNicDevice(dpId, driver, rteHost, rtePort, nffwPath, designPath, p4cfgPath));
             }
         }
         catch (IllegalArgumentException e) {

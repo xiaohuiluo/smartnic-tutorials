@@ -89,7 +89,7 @@
                 <configuration>
                     <instructions>
                         <Export-Package>
-                            org.apache.commons.exec.*
+                            org.apache.commons.exec.*,
                         </Export-Package>
                     </instructions>
                 </configuration>

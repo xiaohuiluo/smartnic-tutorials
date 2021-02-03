@@ -9,6 +9,8 @@ import java.util.concurrent.CompletableFuture;
 
 public class RteCliHandshaker extends AbstractHandlerBehaviour implements DeviceHandshaker {
 
+    public static final String NFP_NICS = "nfp_nics";
+
     @Override
     public boolean isReachable() {
         return true;

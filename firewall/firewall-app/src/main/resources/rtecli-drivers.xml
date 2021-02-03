@@ -1,7 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <drivers>
     <driver name="rtecli" manufacturer="pcl" hwVersion="master" swVersion="master">
-<!--        <behaviour api="org.onosproject.net.device.DeviceDescriptionDiscovery"-->
-<!--                   impl="cn.pcl.firewall.driver.RteCliDeviceDescriptionDiscovery"/>-->
         <behaviour api="org.onosproject.net.device.DeviceHandshaker"
                    impl="cn.pcl.firewall.driver.RteCliHandshaker"/>
     </driver>

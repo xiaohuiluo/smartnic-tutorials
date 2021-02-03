@@ -1,9 +1,5 @@
 package cn.pcl.firewall;
 
-import com.google.common.collect.Lists;
-
-import java.util.List;
-
 public class NfpNicDevice {
     private String dpId;
 
@@ -13,14 +9,20 @@ public class NfpNicDevice {
 
     private String rtePort;
 
-    private List<NfpNicPort> portList;
+    private String nffwPath;
 
-    public NfpNicDevice(String dpId, String driver, String rteHost, String rtePort) {
+    private String designPath;
+
+    private String p4cfgPath;
+
+    public NfpNicDevice(String dpId, String driver, String rteHost, String rtePort, String nffwPath, String designPath, String p4cfgPath) {
         this.dpId = dpId;
         this.driver = driver;
         this.rteHost = rteHost;
         this.rtePort = rtePort;
-        this.portList = Lists.newArrayList();
+        this.nffwPath = nffwPath;
+        this.designPath = designPath;
+        this.p4cfgPath = p4cfgPath;
     }
 
     public String getDpId() {
@@ -55,12 +57,28 @@ public class NfpNicDevice {
         this.rtePort = rtePort;
     }
 
-    public List<NfpNicPort> getPortList() {
-        return portList;
+    public String getNffwPath() {
+        return nffwPath;
     }
 
-    public void setPortList(List<NfpNicPort> portList) {
-        this.portList = portList;
+    public void setNffwPath(String nffwPath) {
+        this.nffwPath = nffwPath;
+    }
+
+    public String getDesignPath() {
+        return designPath;
+    }
+
+    public void setDesignPath(String designPath) {
+        this.designPath = designPath;
+    }
+
+    public String getP4cfgPath() {
+        return p4cfgPath;
+    }
+
+    public void setP4cfgPath(String p4cfgPath) {
+        this.p4cfgPath = p4cfgPath;
     }
 
     @Override
@@ -70,15 +88,9 @@ public class NfpNicDevice {
                 ", driver='" + driver + '\'' +
                 ", rteHost='" + rteHost + '\'' +
                 ", rtePort='" + rtePort + '\'' +
-                ", portList=" + portList +
+                ", nffwPath='" + nffwPath + '\'' +
+                ", designPath='" + designPath + '\'' +
+                ", p4cfgPath='" + p4cfgPath + '\'' +
                 '}';
-    }
-
-    public static class NfpNicPort {
-        private String id;
-
-        private String info;
-
-        private String token;
     }
 }
