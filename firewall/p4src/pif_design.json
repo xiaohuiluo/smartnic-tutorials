@@ -2,7 +2,7 @@
     "generic": {
         "tables_info": {
             "ingress::t_fwd": {
-                "max_entries": 3, 
+                "max_entries": 1025, 
                 "allowed_actions": [
                     "ingress::fwd", 
                     "ingress::drop"
@@ -10,7 +10,7 @@
                 "name": "ingress::t_fwd"
             }, 
             "ingress::t_acl": {
-                "max_entries": 1001, 
+                "max_entries": 1025, 
                 "allowed_actions": [
                     "ingress::allow", 
                     "ingress::deny", 
@@ -130,7 +130,7 @@
                 ], 
                 "name": "t_acl_counter", 
                 "rtsym": "_pif_register_t_acl_counter", 
-                "table_size": 1001, 
+                "table_size": 1025, 
                 "table": "ingress::t_acl", 
                 "hidden": 0, 
                 "szlw": 4, 
@@ -184,7 +184,7 @@
                 ], 
                 "name": "t_fwd_counter", 
                 "rtsym": "_pif_register_t_fwd_counter", 
-                "table_size": 3, 
+                "table_size": 1025, 
                 "table": "ingress::t_fwd", 
                 "hidden": 0, 
                 "szlw": 4, 
@@ -192,7 +192,7 @@
             }
         }, 
         "backend_source_info": {
-            "date": "2021/01/12 09:00:22", 
+            "date": "2021/02/03 03:03:40", 
             "source_files": "C:\\Users\\xiaoh\\NFP_SDK\\firewall\\out\\firewall.yml"
         }, 
         "counters_info": {
@@ -219,7 +219,7 @@
         }, 
         "meter_info": {}, 
         "frontend_source_info": {
-            "date": "2021/01/12 09:00:21", 
+            "date": "2021/02/03 03:03:40", 
             "source_files": [
                 "C:/Users/xiaoh/NFP_SDK/firewall/firewall.p4"
             ]
@@ -230,8 +230,40 @@
                 "constant_default": false, 
                 "matches": [
                     {
+                        "field": "ethernet.dst_addr", 
+                        "type": "ternary", 
+                        "class": "field", 
+                        "header_valid": {
+                            "header": "ethernet", 
+                            "type": "header_valid", 
+                            "class": "header_valid", 
+                            "lm_layout": [
+                                {
+                                    "width": 1, 
+                                    "name": "ethernet_valid", 
+                                    "value": 1, 
+                                    "lmbitoff": 30
+                                }
+                            ]
+                        }, 
+                        "lm_layout": [
+                            {
+                                "width": 32, 
+                                "fldbitoff": 16, 
+                                "name": "dst_addr", 
+                                "lmbitoff": 32
+                            }, 
+                            {
+                                "width": 16, 
+                                "fldbitoff": 0, 
+                                "name": "__dst_addr_1", 
+                                "lmbitoff": 80
+                            }
+                        ]
+                    }, 
+                    {
                         "field": "standard_metadata.ingress_port", 
-                        "type": "exact", 
+                        "type": "ternary", 
                         "class": "field", 
                         "lm_layout": [
                             {
@@ -248,7 +280,7 @@
                     "ingress::drop"
                 ], 
                 "id": 0, 
-                "max_entries": 3, 
+                "max_entries": 1025, 
                 "data_shift": 4, 
                 "rtsym": "_pif_actiondata_table_0_ingress__t_fwd", 
                 "default_entry": {
@@ -556,7 +588,7 @@
                     "ingress::nop"
                 ], 
                 "id": 1, 
-                "max_entries": 1001, 
+                "max_entries": 1025, 
                 "data_shift": 4, 
                 "rtsym": "_pif_actiondata_table_1_ingress__t_acl", 
                 "default_entry": {
@@ -798,10 +830,10 @@
             "ParserTimeout": 6
         }, 
         "build_uuid": [
-            2156887959, 
-            3210156118, 
-            1421087211, 
-            2584221440
+            2156887962, 
+            2827229270, 
+            1707872747, 
+            1794404144
         ], 
         "digests_info": {}, 
         "parser_value_set_info": {}
@@ -896,7 +928,7 @@
                 "directResourceIds": [
                     302051305
                 ], 
-                "size": "1000"
+                "size": "1024"
             }, 
             {
                 "actionRefs": [
@@ -909,10 +941,16 @@
                 ], 
                 "matchFields": [
                     {
-                        "matchType": "EXACT", 
+                        "matchType": "TERNARY", 
                         "bitwidth": 16, 
                         "id": 1, 
                         "name": "standard_metadata.ingress_port"
+                    }, 
+                    {
+                        "matchType": "TERNARY", 
+                        "bitwidth": 48, 
+                        "id": 2, 
+                        "name": "hdr.ethernet.dst_addr"
                     }
                 ], 
                 "preamble": {
@@ -923,7 +961,7 @@
                 "directResourceIds": [
                     302006365
                 ], 
-                "size": "2"
+                "size": "1024"
             }
         ], 
         "directCounters": [
