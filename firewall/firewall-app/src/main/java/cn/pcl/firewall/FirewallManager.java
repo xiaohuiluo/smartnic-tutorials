@@ -16,52 +16,50 @@
 package cn.pcl.firewall;
 
 import cn.pcl.firewall.config.NfpNicCfg;
+import cn.pcl.firewall.rtecli.Action;
+import cn.pcl.firewall.rtecli.Match;
 import cn.pcl.firewall.rtecli.NfpRteCliController;
+import cn.pcl.firewall.rtecli.RteCliResponse;
 import cn.pcl.firewall.rtecli.bean.PortBean;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.onlab.packet.ChassisId;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.core.ApplicationId;
+import org.onosproject.core.CoreService;
 import org.onosproject.mastership.MastershipAdminService;
 import org.onosproject.net.DefaultAnnotations;
+import org.onosproject.net.Device;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.MastershipRole;
 import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.SparseAnnotations;
-import org.onosproject.net.config.Config;
-import org.onosproject.net.config.ConfigApplyDelegate;
+import org.onosproject.net.config.ConfigException;
+import org.onosproject.net.config.ConfigFactory;
+import org.onosproject.net.config.NetworkConfigEvent;
+import org.onosproject.net.config.NetworkConfigListener;
+import org.onosproject.net.config.NetworkConfigRegistry;
 import org.onosproject.net.config.NetworkConfigService;
 import org.onosproject.net.config.basics.PortDescriptionsConfig;
-import org.onosproject.net.device.DefaultPortDescription;
+import org.onosproject.net.config.basics.SubjectFactories;
+import org.onosproject.net.device.DefaultDeviceDescription;
+import org.onosproject.net.device.DeviceDescription;
 import org.onosproject.net.device.DeviceProvider;
+import org.onosproject.net.device.DeviceProviderRegistry;
 import org.onosproject.net.device.DeviceProviderService;
 import org.onosproject.net.device.DeviceService;
-
-import org.onosproject.net.device.PortDescription;
 import org.onosproject.net.provider.ProviderId;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
-import org.onlab.packet.ChassisId;
-import org.onosproject.core.ApplicationId;
-import org.onosproject.core.CoreService;
-import org.onosproject.net.Device;
-import org.onosproject.net.DeviceId;
-import org.onosproject.net.config.ConfigException;
-import org.onosproject.net.config.ConfigFactory;
-import org.onosproject.net.config.NetworkConfigEvent;
-import org.onosproject.net.config.NetworkConfigListener;
-import org.onosproject.net.config.NetworkConfigRegistry;
-import org.onosproject.net.config.basics.SubjectFactories;
-import org.onosproject.net.device.DefaultDeviceDescription;
-import org.onosproject.net.device.DeviceDescription;
-import org.onosproject.net.device.DeviceProviderRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,8 +76,8 @@ import static org.onosproject.net.MastershipRole.MASTER;
 /**
  * Skeletal ONOS application component.
  */
-@Component(immediate = true)
-public class FirewallManager {
+@Component(immediate = true, service = {FirewallService.class})
+public class FirewallManager implements FirewallService {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -168,6 +166,19 @@ public class FirewallManager {
         log.info("Stopped app ", APP_NAME);
     }
 
+    @Override
+    public RteCliResponse addFlowRule(String rteHost, String rtePort) {
+        Match.MatchFactory factory = new Match.MatchFactory();
+        Match portMatch = factory.createTernaryMatch("standard_metadata.ingress_port", "769", "65535");
+        List<Match> matchList = Lists.newArrayList(portMatch);
+
+        List<Action.ActionParam> actionParams = Lists.newArrayList();
+        actionParams.add(new Action.ActionParam("port", "770"));
+        Action fwdAction = new Action("ingress::fwd", actionParams);
+
+        return rteCliController.addFlowRule(rteHost, rtePort, "ingress::t_fwd", "fwd-001", matchList, fwdAction);
+    }
+
     private class InternalConfigListener implements NetworkConfigListener {
 
         private static final String NUMBER = "number";
@@ -253,14 +264,25 @@ public class FirewallManager {
                             mastershipService.setRole(localNode, deviceId, MASTER);
 
                             // design load
-                            boolean designLoadResult = rteCliController.designLoad(nfpNic.getRteHost(), nfpNic.getRtePort(),
+                            RteCliResponse response = rteCliController.designLoad(nfpNic.getRteHost(), nfpNic.getRtePort(),
                                     nfpNic.getNffwPath(), nfpNic.getDesignPath(), nfpNic.getP4cfgPath());
 
-                            if (!designLoadResult) {
-                                log.error("Failed to design load for nic {}", nfpNic);
+                            if (!response.isResult()) {
+                                log.error("Failed to design load for nic {}, error is {}", nfpNic, response.getMessage());
+                                return;
+                            }
+                            else {
+                                log.info("Success to design load to nic {}", nfpNic);
                             }
 
-                            log.info("Success to design load to nic {}", nfpNic);
+                            // test add flow rule
+                            response = addFlowRule(nfpNic.getRteHost(), nfpNic.getRtePort());
+                            if (response.isResult()) {
+                                log.info("Success add flow rule, result = {}", response.getMessage());
+                            }
+                            else {
+                                log.error("Failed add flow rule, error = {}", response.getMessage());
+                            }
 
                         } else {
                             log.error("Failed to add device for nic {}", nfpNic);
@@ -304,6 +326,7 @@ public class FirewallManager {
         @Override
         public boolean isReachable(DeviceId deviceId) {
 
+            // Now do not use driver to control just direct use rtecli command
 //            Device device = deviceService.getDevice(deviceId);
 //            if (device.is(DeviceHandshaker.class)) {
 //                DeviceHandshaker handshaker = device.as(DeviceHandshaker.class);
@@ -316,6 +339,7 @@ public class FirewallManager {
                 return true;
             }
 
+            log.error("Failed to connect with nic {}", deviceId);
             return false;
         }
 

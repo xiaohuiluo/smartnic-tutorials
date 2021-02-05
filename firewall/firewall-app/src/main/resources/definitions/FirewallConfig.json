@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "required": [
+    "deviceId"],
+  "properties": {
+    "deviceId": {
+      "type": "String",
+      "example": "device:sw1"
+    }
+  }
+}
+

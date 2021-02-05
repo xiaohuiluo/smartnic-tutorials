@@ -184,7 +184,7 @@ control IngressPipeImpl(inout headers hdr,
             deny;
             nop;
         }
-        size = 1000;
+        size = 1024;
         default_action = nop();
         counters = t_acl_counter;
     }
@@ -204,7 +204,8 @@ control IngressPipeImpl(inout headers hdr,
 
     table t_fwd {
         key = {
-            standard_metadata.ingress_port   :   exact;
+            standard_metadata.ingress_port   :   ternary;
+            hdr.ethernet.dst_addr	         :   ternary;
         }
         actions = {
             fwd;
@@ -212,13 +213,7 @@ control IngressPipeImpl(inout headers hdr,
         }
         default_action = drop();
         counters = t_fwd_counter;
-        size = 2;
-        /*
-        const entries = {
-            (0x0) : fwd(1);
-            (0x1) : fwd(0);
-        }
-        */
+        size = 1024;
         
     }
     

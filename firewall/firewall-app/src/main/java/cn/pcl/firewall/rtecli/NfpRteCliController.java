@@ -12,7 +12,10 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class NfpRteCliController {
 
@@ -25,11 +28,17 @@ public class NfpRteCliController {
 
     public static final String REG_SINGER_QUOTE = "\'";
     public static final String REG_TRUE = "True";
+    public static final String REG_FALSE = "False";
+    public static final String REG_NONE = "None";
 
+    public static final String SHELL = "/bin/sh";
+    public static final String SHELL_FILE_ARG = "-c";
     public static final String RTE_CLI_PATH = "/opt/netronome/p4/bin/rtecli";
-    public static final String BLANK = " ";
+    public static final String SPACE = " ";
 
-    public static final long DEFAULT_TIMEOUT = 10000;
+    public static final long DEFAULT_RTECLI_TIMEOUT = 10000; //10000ms
+    public static final int DEFAULT_RULE_PRIORITY = 0;
+    public static final long DEFAULT_RULE_TIMEOUT = 0;//0s no timeout
 
     public static final String RTE_HOST_ARG = "-r";
     public static final String RTE_PORT_ARG = "-p";
@@ -44,10 +53,16 @@ public class NfpRteCliController {
     public static final String P4CFG_ARG = "-c";
 
     public static final String TABLES = "tables";
+    public static final String ADD = "add";
+    public static final String EDIT = "edit";
+    public static final String DELETE = "delete";
+
     public static final String TABLE_ARG = "-t";
     public static final String RULE_NAME_ARG = "-r";
     public static final String RULE_MATCH_ARG = "-m";
     public static final String RULE_ACTION_ARG = "-a";
+    public static final String RULE_PRIORITY_ARG = "-p";
+    public static final String RULE_TIMEOUT_ARG = "-o";
 
 
 
@@ -86,17 +101,23 @@ public class NfpRteCliController {
             return new RteCliResponse(true, reply);
         }
         catch (IOException e) {
-            log.warn("Error during RTECLI execution: {}", e.getMessage(), e);
             String cmdLine = commandLine.toString().trim();
-            if (!cmdLine.isEmpty()) log.debug(cmdLine);
+            if (!cmdLine.isEmpty()) {
+                log.debug(cmdLine);
+            }
+            log.warn("Error during RTECLI cmd={}, execution: {}", cmdLine, e.getMessage(), e);
+
             String outStr = outputStream.toString().trim();
-            if (!outStr.isEmpty()) log.debug(outStr);
-            return new RteCliResponse(false);
+            if (!outStr.isEmpty()) {
+                log.error("RTECLI execute cmd={}, error={}", cmdLine, outStr);
+            }
+
+            return new RteCliResponse(false, outStr);
         }
     }
 
-    private RteCliResponse execute(CommandLine commandLine) {
-        return execute(commandLine, DEFAULT_TIMEOUT);
+    public RteCliResponse execute(CommandLine commandLine) {
+        return execute(commandLine, DEFAULT_RTECLI_TIMEOUT);
     }
 
     /**
@@ -123,8 +144,13 @@ public class NfpRteCliController {
         commandLine.addArgument(RTE_STATUS);
 
         RteCliResponse response = execute(commandLine);
-        String msg = response.getMessage().replaceAll(REG_SINGER_QUOTE, "\"").replaceAll(REG_TRUE, "true");
-        response.setMessage(msg);
+        if (response.isResult()) {
+            String msg = response.getMessage().replaceAll(REG_SINGER_QUOTE, "\"")
+                    .replaceAll(REG_TRUE, "true")
+                    .replaceAll(REG_FALSE, "false")
+                    .replaceAll(REG_NONE, "\"\"");
+            response.setMessage(msg);
+        }
 
         return response;
     }
@@ -162,11 +188,11 @@ public class NfpRteCliController {
      * @param p4cfgPath
      * @return
      */
-    public synchronized boolean designLoad(String rteHost, String rtePort, String nffwPath, String designPath, String p4cfgPath) {
+    public synchronized RteCliResponse designLoad(String rteHost, String rtePort, String nffwPath, String designPath, String p4cfgPath) {
         // check status
         RteCliResponse statusRs = getStatus(rteHost, rtePort);
         if (!statusRs.isResult()) {
-            return false;
+            return statusRs;
         }
 
         String statusMsg = statusRs.getMessage();
@@ -174,12 +200,12 @@ public class NfpRteCliController {
             StatusBean bean = OBJECT_MAPPER.readValue(statusMsg, StatusBean.class);
             if (bean.isIs_loaded()) {
                 log.warn("rteHost={}, rtePort={} design is loaded", rteHost, rtePort);
-                return true;
+                return new RteCliResponse(true, "nfp nic is already design loaded");
             }
         }
         catch (IOException e) {
             log.error("Failed to get status of rteHost={}, rtePort={}, exception={}", rteHost, rtePort, e);
-            return false;
+            return new RteCliResponse(false, e.getMessage());
         }
 
         // design load
@@ -200,45 +226,105 @@ public class NfpRteCliController {
             commandLine.addArgument(p4cfgPath);
         }
 
-        RteCliResponse response = execute(commandLine, 20000);
-        return response.isResult();
+        RteCliResponse response = execute(commandLine, 120000);
+        return response;
     }
 
     public synchronized String getPortStats(String rteHost, String rtePort) {
         return null;
     }
 
+    public synchronized RteCliResponse addFlowRule(String rteHost, String rtePort, String table, String ruleName, List<Match> matchList, Action action) {
+        return addFlowRule(rteHost, rtePort, table, ruleName, DEFAULT_RULE_PRIORITY, DEFAULT_RULE_TIMEOUT, matchList, action);
+    }
 
-    public synchronized String addFlowRule(String rteHost, String rtePort, String table, String ruleName, String priority, String match, String action) {
-        CommandLine commandLine = new CommandLine(RTE_CLI_PATH);
-
-        commandLine.addArgument(RTE_HOST_ARG);
-        commandLine.addArgument(rteHost);
-        commandLine.addArgument(RTE_PORT_ARG);
-        commandLine.addArgument(rtePort);
-        commandLine.addArgument(TABLES);
-
-        commandLine.addArgument(TABLE_ARG);
-        commandLine.addArgument(table);
-
-        commandLine.addArgument(RULE_NAME_ARG);
-        commandLine.addArgument(ruleName);
-
-        commandLine.addArgument(RULE_MATCH_ARG);
-        commandLine.addArgument(match);
-
-        commandLine.addArgument(RULE_ACTION_ARG);
-        commandLine.addArgument(action);
-
-        RteCliResponse response = execute(commandLine);
-        if (response.isResult()) {
-            return response.getMessage();
+    public synchronized RteCliResponse addFlowRule(String rteHost, String rtePort, String table, String ruleName, int priority, long timeout, List<Match> matchList, Action action) {
+        // build match
+        List<String> matchStrList = new LinkedList<>();
+        for (Match match : matchList)
+        {
+            if (match.getType() == Match.Type.EXACT) {
+                matchStrList.add(format("'%s': { 'value': '%s' }", match.getKey(), match.getValue()));
+            }
+            else if (match.getType() == Match.Type.TERNARY) {
+                matchStrList.add(format("'%s': { 'value': '%s' , 'mask': '%s'}", match.getKey(), match.getValue(), match.getMask()));
+            }
+            else if (match.getType() == Match.Type.LPM) {
+                matchStrList.add(format("'%s': { 'value': '%s'}", match.getKey(), match.getValue()));
+            }
+            else {
+                log.error("Error match type={}", match.getType());
+            }
         }
 
-        return "{}";
+        String matchArgStr = "{ " + matchStrList.stream().collect(Collectors.joining(", ")) + " }";
+
+        // build action
+        LinkedList<String> actionData = new LinkedList<>();
+        for (Action.ActionParam actionParam : action.getParamList()) {
+            actionData.add(format("'%s': { 'value': '%s' }", actionParam.getParamName(), actionParam.getParamValue()));
+        }
+
+        String actionArgStr;
+        if (actionData.isEmpty()) {
+            actionArgStr = format("{'type': '%s'}", action.getAction());
+        }
+        else {
+            actionArgStr = format("{'type': '%s', 'data': { %s }}", action.getAction(), actionData.stream().collect(Collectors.joining(", ")));
+        }
+
+        return addFlowRule(rteHost, rtePort, table, ruleName, priority, timeout, matchArgStr, actionArgStr);
+    }
+
+    private String buildCmd(String... argments) {
+        StringBuilder stringBuilder = new StringBuilder();
+        for (String arg : argments) {
+            stringBuilder.append(arg);
+            stringBuilder.append(SPACE);
+        }
+
+        return stringBuilder.toString();
+    }
+
+    private synchronized RteCliResponse addFlowRule(String rteHost, String rtePort, String table, String ruleName, int priority, long timeout, String match, String action) {
+        if (!checkRteCli()) {
+            return new RteCliResponse(false, RTE_CLI_PATH + " file not exist");
+        }
+
+        String cmd = buildCmd(RTE_CLI_PATH, RTE_HOST_ARG, rteHost, RTE_PORT_ARG, rtePort,
+                TABLES, ADD, TABLE_ARG, table, RULE_NAME_ARG, ruleName, RULE_MATCH_ARG, "'" + match + "'", RULE_ACTION_ARG, "'" + action + "'");
+
+        if (priority > 0) {
+            cmd = buildCmd(cmd, priority + "");
+        }
+
+        if (timeout > 0) {
+            cmd = buildCmd(cmd, timeout + "");
+        }
+
+        CommandLine commandLine = new CommandLine(SHELL);
+        commandLine.addArgument(SHELL_FILE_ARG);
+        commandLine.addArgument(cmd, false);
+
+        log.info("add flow rule: rteHost={}, rtePort={}, table={}. ruleName={}, priority={}, timeout={}, match={}, action={}",
+                rteHost, rtePort, table, ruleName, priority, timeout, match, action);
+        RteCliResponse response = execute(commandLine);
+
+        log.debug("cmd={}", commandLine.toString());
+        if (response.isResult()) {
+            return response;
+        }
+        else {
+            log.error("Failed to add flow rule, error={}", response.getMessage());
+            return new RteCliResponse(false, response.getMessage());
+        }
     }
 
     public synchronized String getFlowRules(String rteHost, String rtePort, String table) {
         return null;
+    }
+
+    private String format(String format, String... params) {
+        return String.format(format, (Object[]) params).replaceAll("'", "\"");
     }
 }

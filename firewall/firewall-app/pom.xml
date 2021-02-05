@@ -35,6 +35,18 @@
         <onos.app.category>default</onos.app.category>
         <onos.app.url>http://onosproject.org</onos.app.url>
         <onos.app.readme>ONOS OSGi bundle archetype.</onos.app.readme>
+
+        <web.context>/onos/v1/firewall</web.context>
+        <api.version>1.0.0</api.version>
+        <api.title>Firewall REST API</api.title>
+        <api.description>
+            APIs for Firewall app.
+        </api.description>
+        <api.package>cn.pcl.firewall.northbound</api.package>
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
     <dependencies>
@@ -66,6 +78,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-cli</artifactId>
+            <version>${onos.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-core-serializers</artifactId>
+            <version>${onos.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.felix</groupId>
             <artifactId>org.apache.felix.scr.annotations</artifactId>
             <version>1.9.12</version>
@@ -84,20 +108,30 @@
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-bundle-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>4.0.0</version>
                 <extensions>true</extensions>
                 <configuration>
                     <instructions>
+                        <Karaf-Commands>cn.pcl.firewall.cli</Karaf-Commands>
+                        <_wab>src/main/webapp/</_wab>
+                        <Include-Resource>
+                            WEB-INF/classes/apidoc/swagger.json=target/swagger.json,
+                            {maven-resources}
+                        </Include-Resource>
+                        <Import-Package>
+                            *,org.glassfish.jersey.servlet
+                        </Import-Package>
                         <Export-Package>
                             org.apache.commons.exec.*,
                         </Export-Package>
+                        <Web-ContextPath>${web.context}</Web-ContextPath>
                     </instructions>
                 </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.7.0</version>
+                <version>3.8.0</version>
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
@@ -106,15 +140,7 @@
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-scr-plugin</artifactId>
-                <version>1.24.0</version>
-                <executions>
-                    <execution>
-                        <id>generate-scr-srcdescriptor</id>
-                        <goals>
-                            <goal>scr</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <version>1.26.0</version>
                 <configuration>
                     <supportedProjectTypes>
                         <supportedProjectType>bundle</supportedProjectType>
@@ -125,7 +151,7 @@
             <plugin>
                 <groupId>org.onosproject</groupId>
                 <artifactId>onos-maven-plugin</artifactId>
-                <version>1.11</version>
+                <version>2.1</version>
                 <executions>
                     <execution>
                         <id>cfg</id>
