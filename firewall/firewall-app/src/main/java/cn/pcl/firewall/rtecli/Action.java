@@ -1,11 +1,18 @@
 package cn.pcl.firewall.rtecli;
 
+import com.google.common.collect.Lists;
+
 import java.util.List;
 
 public class Action {
     private final String action;
 
     private final List<ActionParam> paramList;
+
+    public Action(String action) {
+        this.action = action;
+        this.paramList = Lists.newArrayList();
+    }
 
     public Action(String action, List<ActionParam> paramList) {
         this.action = action;

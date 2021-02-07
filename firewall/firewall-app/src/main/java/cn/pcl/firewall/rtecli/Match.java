@@ -45,15 +45,18 @@ public class Match {
     }
 
     public static class MatchFactory {
-        public Match createExactMatch(String key, String value) {
+        private MatchFactory() {
+        }
+
+        public static Match createExactMatch(String key, String value) {
             return new Match(Type.EXACT, key, value);
         }
 
-        public Match createTernaryMatch(String key, String value, String mask) {
+        public static Match createTernaryMatch(String key, String value, String mask) {
             return new Match(Type.TERNARY, key, value, mask);
         }
 
-        public Match createLpmMatch(String key, String value) {
+        public static Match createLpmMatch(String key, String value) {
             return new Match(Type.LPM, key, value);
         }
     }

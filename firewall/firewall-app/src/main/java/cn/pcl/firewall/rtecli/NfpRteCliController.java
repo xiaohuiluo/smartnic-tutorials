@@ -276,6 +276,20 @@ public class NfpRteCliController {
         return addFlowRule(rteHost, rtePort, table, ruleName, priority, timeout, matchArgStr, actionArgStr);
     }
 
+    public synchronized RteCliResponse deleteFlowRule(String rteHost, String rtePort, String table, String ruleName) {
+        String cmd = buildCmd(RTE_CLI_PATH, RTE_HOST_ARG, rteHost, RTE_PORT_ARG, rtePort,
+                TABLES, DELETE, TABLE_ARG, table, RULE_NAME_ARG, ruleName);
+
+        CommandLine commandLine = new CommandLine(SHELL);
+        commandLine.addArgument(SHELL_FILE_ARG);
+        commandLine.addArgument(cmd, false);
+
+        log.info("delete flow rule: rteHost={}, rtePort={}, table={}. ruleName={}",
+                rteHost, rtePort, table, ruleName);
+        RteCliResponse response = execute(commandLine);
+        return response;
+    }
+
     private String buildCmd(String... argments) {
         StringBuilder stringBuilder = new StringBuilder();
         for (String arg : argments) {

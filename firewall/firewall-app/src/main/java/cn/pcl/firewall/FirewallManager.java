@@ -15,6 +15,11 @@
  */
 package cn.pcl.firewall;
 
+import cn.pcl.firewall.common.AclConfig;
+import cn.pcl.firewall.common.CmdResult;
+import cn.pcl.firewall.common.Constants;
+import cn.pcl.firewall.common.IntPool;
+import cn.pcl.firewall.common.P4Constants;
 import cn.pcl.firewall.config.NfpNicCfg;
 import cn.pcl.firewall.rtecli.Action;
 import cn.pcl.firewall.rtecli.Match;
@@ -27,7 +32,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.glassfish.jersey.internal.guava.Sets;
 import org.onlab.packet.ChassisId;
+import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.core.ApplicationId;
@@ -55,6 +62,11 @@ import org.onosproject.net.device.DeviceProviderRegistry;
 import org.onosproject.net.device.DeviceProviderService;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.provider.ProviderId;
+import org.onosproject.store.serializers.KryoNamespaces;
+import org.onosproject.store.service.ConsistentMap;
+import org.onosproject.store.service.Serializer;
+import org.onosproject.store.service.StorageService;
+import org.onosproject.store.service.Versioned;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -64,11 +76,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.onosproject.net.MastershipRole.MASTER;
@@ -122,6 +133,9 @@ public class FirewallManager implements FirewallService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected NetworkConfigService networkConfigService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected StorageService storageService;
+
     private final ConfigFactory<ApplicationId, NfpNicCfg> nfpNicConfigFactory =
             new ConfigFactory<ApplicationId, NfpNicCfg>(
                     SubjectFactories.APP_SUBJECT_FACTORY,
@@ -139,7 +153,11 @@ public class FirewallManager implements FirewallService {
 
     private DeviceProvider deviceProvider = new InternalDeviceProvider();
 
-    private Map<String, NfpNicDevice> nfpNicMap = new ConcurrentHashMap<String, NfpNicDevice>();
+    private ConsistentMap<String, NfpNicDevice> nfpNicMap;
+
+    private ConsistentMap<String, IntPool> aclIdPoolMap;
+
+    private ConsistentMap<String, ConsistentMap<String, AclConfig>> aclConfigMap;
 
     private AtomicLong chassisNumber = new AtomicLong(0);
 
@@ -147,12 +165,39 @@ public class FirewallManager implements FirewallService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    KryoNamespace.Builder kryoBuilder = new KryoNamespace.Builder()
+            .register(KryoNamespaces.API)
+            .register(NfpNicDevice.class)
+            .register(IntPool.class)
+            .register(AclConfig.class);
+
     @Activate
     protected void activate() {
         appId = coreService.registerApplication(APP_NAME);
         deviceProviderService = deviceProviderRegistry.register(deviceProvider);
         cfgService.addListener(cfgListener);
         cfgService.registerConfigFactory(nfpNicConfigFactory);
+
+        nfpNicMap = storageService.<String, NfpNicDevice>consistentMapBuilder()
+                .withSerializer(Serializer.using(kryoBuilder.build()))
+                .withName("nfp-nic-map")
+                .withApplicationId(appId)
+                .withPurgeOnUninstall()
+                .build();
+
+        aclIdPoolMap = storageService.<String, IntPool>consistentMapBuilder()
+                .withSerializer(Serializer.using(kryoBuilder.build()))
+                .withName("acl-id-pool-map")
+                .withApplicationId(appId)
+                .withPurgeOnUninstall()
+                .build();
+
+        aclConfigMap = storageService.<String, ConsistentMap<String, AclConfig>>consistentMapBuilder()
+                .withSerializer(Serializer.using(kryoBuilder.build()))
+                .withName("acl-config-map")
+                .withApplicationId(appId)
+                .withPurgeOnUninstall()
+                .build();
 
         log.info("Started app {}", APP_NAME);
     }
@@ -167,9 +212,232 @@ public class FirewallManager implements FirewallService {
     }
 
     @Override
+    public Collection<AclConfig> getAclConfigs(String deviceId) {
+        Versioned<NfpNicDevice> device = nfpNicMap.get(deviceId);
+        if (device == null) {
+            return Sets.newHashSet();
+        }
+
+        Versioned<ConsistentMap<String, AclConfig>> versionedAclConfigMap = this.aclConfigMap.get(deviceId);
+
+        if (versionedAclConfigMap == null || versionedAclConfigMap.value() == null || versionedAclConfigMap.value().isEmpty()) {
+            return Sets.newHashSet();
+        }
+
+        return versionedAclConfigMap.value().asJavaMap().values();
+    }
+
+    @Override
+    public CmdResult addAclFlowRule(String deviceId, String action, String ingressPort, String ethType, String srcMac, String dstMac,
+                                    String protocol, String srcIp, String dstIp, String srcPort, String dstPort) {
+        Versioned<NfpNicDevice> versionedDevice = nfpNicMap.get(deviceId);
+        if (versionedDevice == null || versionedDevice.value() == null) {
+            return new CmdResult(false, "nfp nic device = " + deviceId + " is not exist");
+        }
+
+        NfpNicDevice device = versionedDevice.value();
+
+        // action
+        Action aclAction;
+        if ("allow".equalsIgnoreCase(action)) {
+            aclAction = new Action(P4Constants.ACT_ALLOW);
+        } else if ("deny".equalsIgnoreCase(action)) {
+            aclAction = new Action(P4Constants.ACT_DENY);
+        }
+        else {
+            return new CmdResult(false, "action = " + action + " is invalid");
+        }
+
+        // match
+        List<Match> matchList = Lists.newArrayList();
+        if (ingressPort != null && !ingressPort.isEmpty()) {
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_INGRESS_PORT, ingressPort, P4Constants.MASK_16_BITS);
+            matchList.add(match);
+        }
+
+        if (srcMac != null && !srcMac.isEmpty()) {
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_SRC, srcMac, P4Constants.MASK_48_BITS);
+            matchList.add(match);
+        }
+
+        if (dstMac != null && !dstMac.isEmpty()) {
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_DST, dstMac, P4Constants.MASK_48_BITS);
+            matchList.add(match);
+        }
+
+        if (ethType != null && !ethType.isEmpty()) {
+            String ethTypeCode = getEthTypeCode(ethType);
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_TYPE, ethTypeCode, P4Constants.MASK_16_BITS);
+            matchList.add(match);
+
+            if (Constants.ARP_CODE.equals(ethTypeCode)) {
+                // ARP request/response acl
+            }
+            else if (Constants.IPV4_CODE.equals(ethTypeCode)) {
+
+                if (srcIp != null && !srcIp.isEmpty()) {
+                    Match srcIpMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_SRC, srcIp, P4Constants.MASK_32_BITS);
+                    matchList.add(srcIpMatch);
+                }
+
+                if (dstIp != null && !dstIp.isEmpty()) {
+                    Match dstIpMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_DST, dstIp, P4Constants.MASK_32_BITS);
+                    matchList.add(dstIpMatch);
+                }
+
+                if (protocol != null && !protocol.isEmpty()) {
+                    String protoCode = getIpProtoCode(protocol);
+                    if (Constants.ICMP_CODE.equals(protoCode)) {
+                        Match protoMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_PROTO, protoCode, P4Constants.MASK_48_BITS);
+                        matchList.add(protoMatch);
+                    }
+                    else if (Constants.TCP_CODE.equals(protoCode)) {
+                        Match protoMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_PROTO, protoCode, P4Constants.MASK_48_BITS);
+                        matchList.add(protoMatch);
+
+                        if (srcPort != null && !srcPort.isEmpty()) {
+                            Match tpPortMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_TCP_SRC, srcPort, P4Constants.MASK_16_BITS);
+                            matchList.add(tpPortMatch);
+                        }
+
+                        if (dstPort != null && !dstPort.isEmpty()) {
+                            Match tpPortMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_TCP_DST, dstPort, P4Constants.MASK_16_BITS);
+                            matchList.add(tpPortMatch);
+                        }
+                    }
+                    else if (Constants.UDP_CODE.equals(protoCode)) {
+                        Match protoMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_PROTO, protoCode, P4Constants.MASK_48_BITS);
+                        matchList.add(protoMatch);
+
+                        if (srcPort != null && !srcPort.isEmpty()) {
+                            Match tpPortMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_UDP_SRC, srcPort, P4Constants.MASK_16_BITS);
+                            matchList.add(tpPortMatch);
+                        }
+
+                        if (dstPort != null && !dstPort.isEmpty()) {
+                            Match tpPortMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_UDP_DST, dstPort, P4Constants.MASK_16_BITS);
+                            matchList.add(tpPortMatch);
+                        }
+
+                    }
+                }
+            }
+        }
+
+        if (matchList.isEmpty()) {
+            log.error("Match can not be empty");
+            return new CmdResult(false, "Error: match is empty");
+        }
+
+        Versioned<IntPool> aclIdPool = aclIdPoolMap.get(deviceId);
+        IntPool realAclIdPool;
+        if (aclIdPool == null || aclIdPool.value() == null) {
+            realAclIdPool = new IntPool(1000, 5000);
+            aclIdPoolMap.putIfAbsent(deviceId, realAclIdPool);
+        }
+        else {
+            realAclIdPool = aclIdPool.value();
+        }
+
+        int aclId = realAclIdPool.acquire();
+        String aclIdStr = aclId + "";
+        RteCliResponse response = rteCliController.addFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, aclIdStr, matchList, aclAction);
+        if (response.isResult()) {
+            AclConfig config = new AclConfig(aclIdStr, action.toLowerCase(), ingressPort, ethType, srcMac, dstMac, protocol, srcIp, dstIp, srcPort, dstPort);
+            saveAclConfig(deviceId, config);
+            log.info("Success to Add acl={} to deviceId={}", config, deviceId);
+            return new CmdResult(true, "Success to add acl = " + config);
+        }
+        else {
+            realAclIdPool.release(aclId);
+            log.error("Failed to add acl to deviceId={}", deviceId);
+            return new CmdResult(false, response.getMessage());
+        }
+    }
+
+    @Override
+    public CmdResult deleteAclFlowRule(String deviceId, String actionOrId) {
+        Versioned<NfpNicDevice> versionedDevice = nfpNicMap.get(deviceId);
+        if (versionedDevice == null || versionedDevice.value() == null) {
+            return new CmdResult(false, "nfp nic device = " + deviceId + " is not exist");
+        }
+
+        NfpNicDevice device = versionedDevice.value();
+
+        Versioned<ConsistentMap<String, AclConfig>> versionedAclConfigMap = this.aclConfigMap.get(deviceId);
+        if (versionedAclConfigMap == null || versionedAclConfigMap.value() == null || versionedAclConfigMap.value().isEmpty()) {
+            return new CmdResult(false, "No such acl id=" + actionOrId);
+        }
+
+        AclConfig config = versionedAclConfigMap.value().get(actionOrId).value();
+        if (config == null) {
+            return new CmdResult(false, "No such acl id=" + actionOrId);
+        }
+
+        RteCliResponse response = rteCliController.deleteFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, actionOrId);
+        if (response.isResult()) {
+            aclIdPoolMap.get(deviceId).value().release(Integer.parseInt(actionOrId));
+            versionedAclConfigMap.value().remove(config.getId());
+            return new CmdResult(true, "Success to delete acl=" + config);
+        }
+        else {
+            return new CmdResult(false, "Failed to delete acl=" + config + ", error=" + response.getMessage());
+        }
+    }
+
+    private void saveAclConfig(String deviceId, AclConfig aclConfig) {
+        Versioned<ConsistentMap<String, AclConfig>> versionedAclConfigMap = this.aclConfigMap.get(deviceId);
+        ConsistentMap<String, AclConfig> aclConfigs;
+        if (versionedAclConfigMap == null || versionedAclConfigMap.value() == null) {
+            aclConfigs = storageService.<String, AclConfig>consistentMapBuilder()
+                    .withSerializer(Serializer.using(kryoBuilder.build()))
+                    .withName("acl-config-" + deviceId)
+                    .withApplicationId(appId)
+                    .withPurgeOnUninstall()
+                    .build();
+
+            this.aclConfigMap.putIfAbsent(deviceId, aclConfigs);
+        }
+        else {
+            aclConfigs = versionedAclConfigMap.value();
+        }
+
+        aclConfigs.put(aclConfig.getId(), aclConfig);
+    }
+
+    private String getEthTypeCode(String ethType) {
+        switch (ethType) {
+            case Constants.ARP : {
+                return Constants.ARP_CODE;
+            }
+            case Constants.IPV4 : {
+                return Constants.IPV4_CODE;
+            }
+            default:{
+                throw new RuntimeException("Error: Invalid ethernet type");
+            }
+        }
+    }
+
+    private String getIpProtoCode(String prorocol) {
+        switch (prorocol) {
+            case Constants.ICMP : {
+                return Constants.ICMP_CODE;
+            }
+            case Constants.TCP : {
+                return Constants.TCP_CODE;
+            }
+            case Constants.UDP : {
+                return Constants.UDP_CODE;
+            }
+            default:{
+                throw new RuntimeException("Error: Invalid ip protocol");
+            }
+        }
+    }
+
     public RteCliResponse addFlowRule(String rteHost, String rtePort) {
-        Match.MatchFactory factory = new Match.MatchFactory();
-        Match portMatch = factory.createTernaryMatch("standard_metadata.ingress_port", "769", "65535");
+        Match portMatch = Match.MatchFactory.createTernaryMatch("standard_metadata.ingress_port", "769", "65535");
         List<Match> matchList = Lists.newArrayList(portMatch);
 
         List<Action.ActionParam> actionParams = Lists.newArrayList();
@@ -205,7 +473,17 @@ public class FirewallManager implements FirewallService {
 
                     nfpNicDeviceSet.forEach(nfpNic -> {
                         if (!nfpNic.getDpId().isEmpty() && !nfpNic.getRteHost().isEmpty() && !nfpNic.getRtePort().isEmpty() && !nfpNic.getDriver().isEmpty()) {
-                            nfpNicMap.put(nfpNic.getDpId(), nfpNic);
+
+                            // add nfp device and generate aclIdPool resource
+                            Versioned<NfpNicDevice> versionedNfpDeviceMap = nfpNicMap.get(nfpNic.getDpId());
+                            if (versionedNfpDeviceMap == null || versionedNfpDeviceMap.value() == null) {
+                                nfpNicMap.put(nfpNic.getDpId(), nfpNic);
+                            }
+
+                            Versioned<IntPool> versionedAclIpPoolMap = aclIdPoolMap.get(nfpNic.getDpId());
+                            if (versionedAclIpPoolMap == null || versionedAclIpPoolMap.value() == null) {
+                                aclIdPoolMap.putIfAbsent(nfpNic.getDpId(), new IntPool(1000, 5000));
+                            }
 
                             // add device
                             DeviceId deviceId = DeviceId.deviceId(nfpNic.getDpId());
@@ -334,9 +612,13 @@ public class FirewallManager implements FirewallService {
 //                log.info("reach with driver isReachable={}", handshaker.isReachable());
 //                return handshaker.isReachable();
 //            }
-            NfpNicDevice nicDevice = nfpNicMap.get(deviceId.toString());
-            if ( nicDevice != null && rteCliController.connectNic(nicDevice.getRteHost(), nicDevice.getRtePort())) {
-                return true;
+            Versioned<NfpNicDevice> versionedDevices = nfpNicMap.get(deviceId.toString());
+            if (versionedDevices != null) {
+                NfpNicDevice nicDevice = versionedDevices.value();
+                if (nicDevice != null && rteCliController.connectNic(nicDevice.getRteHost(), nicDevice.getRtePort())) {
+                    return true;
+                }
+
             }
 
             log.error("Failed to connect with nic {}", deviceId);
@@ -345,10 +627,6 @@ public class FirewallManager implements FirewallService {
 
         @Override
         public void changePortState(DeviceId deviceId, PortNumber portNumber, boolean enable) {
-            NfpNicDevice nicDevice = nfpNicMap.get(deviceId.toString());
-
-
-
         }
 
         @Override
