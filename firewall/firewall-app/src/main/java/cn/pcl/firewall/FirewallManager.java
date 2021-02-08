@@ -519,7 +519,7 @@ public class FirewallManager implements FirewallService {
                                         JsonNode portJsonNode = OBJECT_MAPPER.createObjectNode()
                                                 .put(NUMBER, bean.getId())
                                                 .put(NAME, portName)
-                                                .put(ENABLED, false)
+                                                .put(ENABLED, true)
                                                 .put(REMOVED, false)
                                                 .put(TYPE, Port.Type.COPPER.toString())
                                                 .put(SPEED, getPortSpeed(bean))

@@ -218,12 +218,12 @@ public class NfpRteCliController {
         commandLine.addArgument(DESIGN_ARG);
         commandLine.addArgument(designPath);
 
-        if (p4cfgPath == null || p4cfgPath.isEmpty()) {
+        if (p4cfgPath != null && !p4cfgPath.isEmpty()) {
             commandLine.addArgument(P4CFG_ARG);
             commandLine.addArgument(p4cfgPath);
         }
 
-        RteCliResponse response = execute(commandLine, 120000);
+        RteCliResponse response = execute(commandLine, 500000);
         return response;
     }
 
