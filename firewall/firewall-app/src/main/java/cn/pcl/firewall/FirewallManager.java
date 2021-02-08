@@ -35,6 +35,7 @@ import com.google.common.collect.Maps;
 import org.glassfish.jersey.internal.guava.Sets;
 import org.onlab.packet.ChassisId;
 import org.onlab.packet.Ip4Address;
+import org.onlab.packet.MacAddress;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
@@ -261,12 +262,14 @@ public class FirewallManager implements FirewallService {
         }
 
         if (srcMac != null && !srcMac.isEmpty()) {
-            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_SRC, srcMac, P4Constants.MASK_48_BITS);
+            String srcMacHex = getHexMac(srcMac);
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_SRC, srcMacHex, P4Constants.MASK_48_BITS);
             matchList.add(match);
         }
 
         if (dstMac != null && !dstMac.isEmpty()) {
-            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_DST, dstMac, P4Constants.MASK_48_BITS);
+            String dstMacHex = getHexMac(dstMac);
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_DST, dstMacHex, P4Constants.MASK_48_BITS);
             matchList.add(match);
         }
 
@@ -435,6 +438,11 @@ public class FirewallManager implements FirewallService {
                 throw new RuntimeException("Error: Invalid ip protocol");
             }
         }
+    }
+
+    private String getHexMac(String mac) {
+        MacAddress macAddress = MacAddress.valueOf(mac);
+        return String.format("0x%s", macAddress.toStringNoColon());
     }
 
     private String getHexIpv4(String ip) {
