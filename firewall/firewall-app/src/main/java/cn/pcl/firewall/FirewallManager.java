@@ -34,6 +34,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.glassfish.jersey.internal.guava.Sets;
 import org.onlab.packet.ChassisId;
+import org.onlab.packet.Ip4Address;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
@@ -66,7 +67,6 @@ import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.StorageService;
-import org.onosproject.store.service.Versioned;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -79,7 +79,9 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.onosproject.net.MastershipRole.MASTER;
@@ -155,21 +157,15 @@ public class FirewallManager implements FirewallService {
 
     private ConsistentMap<String, NfpNicDevice> nfpNicMap;
 
-    private ConsistentMap<String, IntPool> aclIdPoolMap;
+    private Map<String, IntPool> aclIdPoolMap = new ConcurrentHashMap<>();
 
-    private ConsistentMap<String, ConsistentMap<String, AclConfig>> aclConfigMap;
+    private ConsistentMap<String, List<AclConfig>> aclConfigMap;
 
     private AtomicLong chassisNumber = new AtomicLong(0);
 
     private NfpRteCliController rteCliController = new NfpRteCliController();
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    KryoNamespace.Builder kryoBuilder = new KryoNamespace.Builder()
-            .register(KryoNamespaces.API)
-            .register(NfpNicDevice.class)
-            .register(IntPool.class)
-            .register(AclConfig.class);
 
     @Activate
     protected void activate() {
@@ -179,25 +175,35 @@ public class FirewallManager implements FirewallService {
         cfgService.registerConfigFactory(nfpNicConfigFactory);
 
         nfpNicMap = storageService.<String, NfpNicDevice>consistentMapBuilder()
-                .withSerializer(Serializer.using(kryoBuilder.build()))
                 .withName("nfp-nic-map")
                 .withApplicationId(appId)
                 .withPurgeOnUninstall()
+                .withSerializer(Serializer.using( new KryoNamespace.Builder()
+                        .register(KryoNamespaces.API)
+                        .register(NfpNicDevice.class)
+                        .build()))
                 .build();
 
-        aclIdPoolMap = storageService.<String, IntPool>consistentMapBuilder()
-                .withSerializer(Serializer.using(kryoBuilder.build()))
-                .withName("acl-id-pool-map")
-                .withApplicationId(appId)
-                .withPurgeOnUninstall()
-                .build();
-
-        aclConfigMap = storageService.<String, ConsistentMap<String, AclConfig>>consistentMapBuilder()
-                .withSerializer(Serializer.using(kryoBuilder.build()))
+        aclConfigMap = storageService.<String, List<AclConfig>>consistentMapBuilder()
                 .withName("acl-config-map")
                 .withApplicationId(appId)
                 .withPurgeOnUninstall()
+                .withSerializer(Serializer.using(
+                        new KryoNamespace.Builder()
+                                .register(KryoNamespaces.API)
+                                .register(AclConfig.class)
+                                .build()))
                 .build();
+
+        // update acl id pool resource
+        aclConfigMap.asJavaMap().forEach( (deviceId, acls) -> {
+            IntPool idPool = new IntPool(1000, 5000);
+            for (AclConfig acl : acls) {
+                idPool.markStatus(Integer.parseInt(acl.getId()), true);
+            }
+
+            aclIdPoolMap.put(deviceId, idPool);
+        });
 
         log.info("Started app {}", APP_NAME);
     }
@@ -213,29 +219,28 @@ public class FirewallManager implements FirewallService {
 
     @Override
     public Collection<AclConfig> getAclConfigs(String deviceId) {
-        Versioned<NfpNicDevice> device = nfpNicMap.get(deviceId);
+        NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId);
         if (device == null) {
             return Sets.newHashSet();
         }
 
-        Versioned<ConsistentMap<String, AclConfig>> versionedAclConfigMap = this.aclConfigMap.get(deviceId);
+        List<AclConfig> aclConfigList = aclConfigMap.asJavaMap().get(deviceId);
 
-        if (versionedAclConfigMap == null || versionedAclConfigMap.value() == null || versionedAclConfigMap.value().isEmpty()) {
+        if (aclConfigList == null) {
             return Sets.newHashSet();
         }
-
-        return versionedAclConfigMap.value().asJavaMap().values();
+        else {
+            return aclConfigMap.asJavaMap().get(deviceId);
+        }
     }
 
     @Override
     public CmdResult addAclFlowRule(String deviceId, String action, String ingressPort, String ethType, String srcMac, String dstMac,
                                     String protocol, String srcIp, String dstIp, String srcPort, String dstPort) {
-        Versioned<NfpNicDevice> versionedDevice = nfpNicMap.get(deviceId);
-        if (versionedDevice == null || versionedDevice.value() == null) {
+        NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId);
+        if (device == null) {
             return new CmdResult(false, "nfp nic device = " + deviceId + " is not exist");
         }
-
-        NfpNicDevice device = versionedDevice.value();
 
         // action
         Action aclAction;
@@ -276,12 +281,14 @@ public class FirewallManager implements FirewallService {
             else if (Constants.IPV4_CODE.equals(ethTypeCode)) {
 
                 if (srcIp != null && !srcIp.isEmpty()) {
-                    Match srcIpMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_SRC, srcIp, P4Constants.MASK_32_BITS);
+                    String srcIpHex = getHexIpv4(srcIp);
+                    Match srcIpMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_SRC, srcIpHex, P4Constants.MASK_32_BITS);
                     matchList.add(srcIpMatch);
                 }
 
                 if (dstIp != null && !dstIp.isEmpty()) {
-                    Match dstIpMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_DST, dstIp, P4Constants.MASK_32_BITS);
+                    String dstIpHex = getHexIpv4(dstIp);
+                    Match dstIpMatch = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_IP_DST, dstIpHex, P4Constants.MASK_32_BITS);
                     matchList.add(dstIpMatch);
                 }
 
@@ -329,17 +336,16 @@ public class FirewallManager implements FirewallService {
             return new CmdResult(false, "Error: match is empty");
         }
 
-        Versioned<IntPool> aclIdPool = aclIdPoolMap.get(deviceId);
-        IntPool realAclIdPool;
-        if (aclIdPool == null || aclIdPool.value() == null) {
-            realAclIdPool = new IntPool(1000, 5000);
-            aclIdPoolMap.putIfAbsent(deviceId, realAclIdPool);
+        IntPool aclIdPool;
+        if (aclIdPoolMap.isEmpty()) {
+            aclIdPool = new IntPool(1000, 5000);
+            aclIdPoolMap.put(deviceId, aclIdPool);
         }
         else {
-            realAclIdPool = aclIdPool.value();
+            aclIdPool = aclIdPoolMap.get(deviceId);
         }
 
-        int aclId = realAclIdPool.acquire();
+        int aclId = aclIdPool.acquire();
         String aclIdStr = aclId + "";
         RteCliResponse response = rteCliController.addFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, aclIdStr, matchList, aclAction);
         if (response.isResult()) {
@@ -349,60 +355,55 @@ public class FirewallManager implements FirewallService {
             return new CmdResult(true, "Success to add acl = " + config);
         }
         else {
-            realAclIdPool.release(aclId);
+            aclIdPool.release(aclId);
             log.error("Failed to add acl to deviceId={}", deviceId);
             return new CmdResult(false, response.getMessage());
         }
     }
 
     @Override
-    public CmdResult deleteAclFlowRule(String deviceId, String actionOrId) {
-        Versioned<NfpNicDevice> versionedDevice = nfpNicMap.get(deviceId);
-        if (versionedDevice == null || versionedDevice.value() == null) {
+    public CmdResult deleteAclFlowRule(String deviceId, String aclId) {
+        NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId);
+        if (device == null) {
             return new CmdResult(false, "nfp nic device = " + deviceId + " is not exist");
         }
 
-        NfpNicDevice device = versionedDevice.value();
+        List<AclConfig> aclConfigList = aclConfigMap.asJavaMap().get(deviceId);
 
-        Versioned<ConsistentMap<String, AclConfig>> versionedAclConfigMap = this.aclConfigMap.get(deviceId);
-        if (versionedAclConfigMap == null || versionedAclConfigMap.value() == null || versionedAclConfigMap.value().isEmpty()) {
-            return new CmdResult(false, "No such acl id=" + actionOrId);
-        }
-
-        AclConfig config = versionedAclConfigMap.value().get(actionOrId).value();
-        if (config == null) {
-            return new CmdResult(false, "No such acl id=" + actionOrId);
+        if (aclConfigList == null || aclConfigList.isEmpty()) {
+            return new CmdResult(false, "No such acl id=" + aclId);
         }
 
-        RteCliResponse response = rteCliController.deleteFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, actionOrId);
-        if (response.isResult()) {
-            aclIdPoolMap.get(deviceId).value().release(Integer.parseInt(actionOrId));
-            versionedAclConfigMap.value().remove(config.getId());
-            return new CmdResult(true, "Success to delete acl=" + config);
+        // find acl
+        for (AclConfig config : aclConfigList) {
+            if (config.getId().equals(aclId)) {
+                RteCliResponse response = rteCliController.deleteFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, aclId);
+                if (response.isResult()) {
+                    aclIdPoolMap.get(deviceId).release(Integer.parseInt(aclId));
+                    aclConfigList.remove(config);
+                    aclConfigMap.put(deviceId, aclConfigList);
+                    return new CmdResult(true, "Success to delete acl=" + config);
+                } else {
+                    return new CmdResult(false, "Failed to delete acl=" + config + ", error=" + response.getMessage());
+                }
+            }
         }
-        else {
-            return new CmdResult(false, "Failed to delete acl=" + config + ", error=" + response.getMessage());
-        }
+
+        return new CmdResult(false, "No such acl id=" + aclId);
     }
 
     private void saveAclConfig(String deviceId, AclConfig aclConfig) {
-        Versioned<ConsistentMap<String, AclConfig>> versionedAclConfigMap = this.aclConfigMap.get(deviceId);
-        ConsistentMap<String, AclConfig> aclConfigs;
-        if (versionedAclConfigMap == null || versionedAclConfigMap.value() == null) {
-            aclConfigs = storageService.<String, AclConfig>consistentMapBuilder()
-                    .withSerializer(Serializer.using(kryoBuilder.build()))
-                    .withName("acl-config-" + deviceId)
-                    .withApplicationId(appId)
-                    .withPurgeOnUninstall()
-                    .build();
-
-            this.aclConfigMap.putIfAbsent(deviceId, aclConfigs);
+        List<AclConfig> aclConfigList = aclConfigMap.asJavaMap().get(deviceId);
+        if (aclConfigList == null || aclConfigList.isEmpty()) {
+            aclConfigList = Lists.newArrayList(aclConfig);
+            aclConfigMap.put(deviceId, aclConfigList);
         }
         else {
-            aclConfigs = versionedAclConfigMap.value();
-        }
+            aclConfigList.removeIf(config -> config.getId().equals(aclConfig.getId()));
 
-        aclConfigs.put(aclConfig.getId(), aclConfig);
+            aclConfigList.add(aclConfig);
+            aclConfigMap.put(deviceId, aclConfigList);
+        }
     }
 
     private String getEthTypeCode(String ethType) {
@@ -436,15 +437,9 @@ public class FirewallManager implements FirewallService {
         }
     }
 
-    public RteCliResponse addFlowRule(String rteHost, String rtePort) {
-        Match portMatch = Match.MatchFactory.createTernaryMatch("standard_metadata.ingress_port", "769", "65535");
-        List<Match> matchList = Lists.newArrayList(portMatch);
-
-        List<Action.ActionParam> actionParams = Lists.newArrayList();
-        actionParams.add(new Action.ActionParam("port", "770"));
-        Action fwdAction = new Action("ingress::fwd", actionParams);
-
-        return rteCliController.addFlowRule(rteHost, rtePort, "ingress::t_fwd", "fwd-001", matchList, fwdAction);
+    private String getHexIpv4(String ip) {
+        Ip4Address ip4Address = Ip4Address.valueOf(ip);
+        return String.format("0x%08x", ip4Address.toInt());
     }
 
     private class InternalConfigListener implements NetworkConfigListener {
@@ -474,15 +469,13 @@ public class FirewallManager implements FirewallService {
                     nfpNicDeviceSet.forEach(nfpNic -> {
                         if (!nfpNic.getDpId().isEmpty() && !nfpNic.getRteHost().isEmpty() && !nfpNic.getRtePort().isEmpty() && !nfpNic.getDriver().isEmpty()) {
 
-                            // add nfp device and generate aclIdPool resource
-                            Versioned<NfpNicDevice> versionedNfpDeviceMap = nfpNicMap.get(nfpNic.getDpId());
-                            if (versionedNfpDeviceMap == null || versionedNfpDeviceMap.value() == null) {
-                                nfpNicMap.put(nfpNic.getDpId(), nfpNic);
+                            if (nfpNicMap == null) {
+                                return;
                             }
-
-                            Versioned<IntPool> versionedAclIpPoolMap = aclIdPoolMap.get(nfpNic.getDpId());
-                            if (versionedAclIpPoolMap == null || versionedAclIpPoolMap.value() == null) {
-                                aclIdPoolMap.putIfAbsent(nfpNic.getDpId(), new IntPool(1000, 5000));
+                            // add nfp device
+                            NfpNicDevice nfpDeviceMap = nfpNicMap.asJavaMap().get(nfpNic.getDpId());
+                            if (nfpDeviceMap == null) {
+                                nfpNicMap.put(nfpNic.getDpId(), nfpNic);
                             }
 
                             // add device
@@ -554,13 +547,13 @@ public class FirewallManager implements FirewallService {
                             }
 
                             // test add flow rule
-                            response = addFlowRule(nfpNic.getRteHost(), nfpNic.getRtePort());
-                            if (response.isResult()) {
-                                log.info("Success add flow rule, result = {}", response.getMessage());
-                            }
-                            else {
-                                log.error("Failed add flow rule, error = {}", response.getMessage());
-                            }
+//                            response = addFlowRule(nfpNic.getRteHost(), nfpNic.getRtePort());
+//                            if (response.isResult()) {
+//                                log.info("Success add flow rule, result = {}", response.getMessage());
+//                            }
+//                            else {
+//                                log.error("Failed add flow rule, error = {}", response.getMessage());
+//                            }
 
                         } else {
                             log.error("Failed to add device for nic {}", nfpNic);
@@ -612,13 +605,11 @@ public class FirewallManager implements FirewallService {
 //                log.info("reach with driver isReachable={}", handshaker.isReachable());
 //                return handshaker.isReachable();
 //            }
-            Versioned<NfpNicDevice> versionedDevices = nfpNicMap.get(deviceId.toString());
-            if (versionedDevices != null) {
-                NfpNicDevice nicDevice = versionedDevices.value();
-                if (nicDevice != null && rteCliController.connectNic(nicDevice.getRteHost(), nicDevice.getRtePort())) {
+            NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId.toString());
+            if (device != null) {
+                if (device != null && rteCliController.connectNic(device.getRteHost(), device.getRtePort())) {
                     return true;
                 }
-
             }
 
             log.error("Failed to connect with nic {}", deviceId);

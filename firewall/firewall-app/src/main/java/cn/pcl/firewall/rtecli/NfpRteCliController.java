@@ -43,6 +43,8 @@ public class NfpRteCliController {
     public static final String RTE_HOST_ARG = "-r";
     public static final String RTE_PORT_ARG = "-p";
 
+    public static final String RTE_JSON_RS_ARG = "-j";
+
     public static final String RTE_STATUS = "status";
     public static final String RTE_PORTS = "ports";
     public static final String RTE_LIST = "list";
@@ -121,7 +123,7 @@ public class NfpRteCliController {
     }
 
     /**
-     * /opt/netronome/p4/bin/rtecli -r rteHost -p rtePort status
+     * /opt/netronome/p4/bin/rtecli -r rteHost -p -j rtePort status
      * @param rteHost
      * @param rtePort
      * @return
@@ -141,21 +143,15 @@ public class NfpRteCliController {
         commandLine.addArgument(rteHost);
         commandLine.addArgument(RTE_PORT_ARG);
         commandLine.addArgument(rtePort);
+        commandLine.addArgument(RTE_JSON_RS_ARG);
         commandLine.addArgument(RTE_STATUS);
 
         RteCliResponse response = execute(commandLine);
-        if (response.isResult()) {
-            String msg = response.getMessage().replaceAll(REG_SINGER_QUOTE, "\"")
-                    .replaceAll(REG_TRUE, "true")
-                    .replaceAll(REG_FALSE, "false")
-                    .replaceAll(REG_NONE, "\"\"");
-            response.setMessage(msg);
-        }
 
         return response;
     }
 
-    // /opt/netronome/p4/bin/rtecli -r 192.168.67.143 -p 20206 ports list
+    // /opt/netronome/p4/bin/rtecli -r 192.168.67.143 -p 20206 -j ports list
     public synchronized String getNicPorts(String rteHost, String rtePort) {
         if (!checkRteCli()) {
             return "[]";
@@ -167,20 +163,20 @@ public class NfpRteCliController {
         commandLine.addArgument(rteHost);
         commandLine.addArgument(RTE_PORT_ARG);
         commandLine.addArgument(rtePort);
+        commandLine.addArgument(RTE_JSON_RS_ARG);
         commandLine.addArgument(RTE_PORTS);
         commandLine.addArgument(RTE_LIST);
 
         RteCliResponse response = execute(commandLine);
         if (response.isResult()) {
-            String msg = response.getMessage();
-            return msg.replaceAll(REG_SINGER_QUOTE, "\"");
+            return response.getMessage();
         }
 
         return "[]";
     }
 
     /**
-     * /opt/netronome/p4/bin/rtecli -r RTE_HOST -p RTE_PORT design-load -f nffwPath -p designPath -c p4cfgPath
+     * /opt/netronome/p4/bin/rtecli -r RTE_HOST -p RTE_PORT -j design-load -f nffwPath -p designPath -c p4cfgPath
      * @param rteHost
      * @param rtePort
      * @param nffwPath
@@ -215,6 +211,7 @@ public class NfpRteCliController {
         commandLine.addArgument(rteHost);
         commandLine.addArgument(RTE_PORT_ARG);
         commandLine.addArgument(rtePort);
+        commandLine.addArgument(RTE_JSON_RS_ARG);
         commandLine.addArgument(DESIGN_LOAD);
         commandLine.addArgument(NFFW_ARG);
         commandLine.addArgument(nffwPath);
@@ -277,7 +274,7 @@ public class NfpRteCliController {
     }
 
     public synchronized RteCliResponse deleteFlowRule(String rteHost, String rtePort, String table, String ruleName) {
-        String cmd = buildCmd(RTE_CLI_PATH, RTE_HOST_ARG, rteHost, RTE_PORT_ARG, rtePort,
+        String cmd = buildCmd(RTE_CLI_PATH, RTE_HOST_ARG, rteHost, RTE_PORT_ARG, rtePort, RTE_JSON_RS_ARG,
                 TABLES, DELETE, TABLE_ARG, table, RULE_NAME_ARG, ruleName);
 
         CommandLine commandLine = new CommandLine(SHELL);
@@ -305,7 +302,7 @@ public class NfpRteCliController {
             return new RteCliResponse(false, RTE_CLI_PATH + " file not exist");
         }
 
-        String cmd = buildCmd(RTE_CLI_PATH, RTE_HOST_ARG, rteHost, RTE_PORT_ARG, rtePort,
+        String cmd = buildCmd(RTE_CLI_PATH, RTE_HOST_ARG, rteHost, RTE_PORT_ARG, rtePort, RTE_JSON_RS_ARG,
                 TABLES, ADD, TABLE_ARG, table, RULE_NAME_ARG, ruleName, RULE_MATCH_ARG, "'" + match + "'", RULE_ACTION_ARG, "'" + action + "'");
 
         if (priority > 0) {
@@ -325,13 +322,7 @@ public class NfpRteCliController {
         RteCliResponse response = execute(commandLine);
 
         log.debug("cmd={}", commandLine.toString());
-        if (response.isResult()) {
-            return response;
-        }
-        else {
-            log.error("Failed to add flow rule, error={}", response.getMessage());
-            return new RteCliResponse(false, response.getMessage());
-        }
+        return response;
     }
 
     public synchronized String getFlowRules(String rteHost, String rtePort, String table) {

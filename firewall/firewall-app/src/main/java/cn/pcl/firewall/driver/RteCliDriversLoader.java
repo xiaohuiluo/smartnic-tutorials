@@ -12,7 +12,10 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
+import java.net.URL;
 
 @Component(immediate = true)
 public class RteCliDriversLoader{
@@ -25,7 +28,13 @@ public class RteCliDriversLoader{
 
     @Activate
     public void activate() {
-        try(InputStream inputStream = FrameworkUtil.getBundle(RteCliDriversLoader.class).getResource("rtecli-drivers.xml").openStream()) {
+        URL drvUrl = FrameworkUtil.getBundle(RteCliDriversLoader.class).getEntry("rtecli-drivers.xml");
+        if (drvUrl == null) {
+            log.error("Failed to load rtecli drivers xml file, No resource file {}", "rtecli-drivers.xml");
+            return;
+        }
+
+        try(InputStream inputStream = drvUrl.openStream()) {
             this.provider = (new XmlDriverLoader(this.getClass().getClassLoader(), this.driverAdminService)).loadDrivers(inputStream, this.driverAdminService);
             this.driverAdminService.registerProvider(this.provider);
         } catch (Exception e) {

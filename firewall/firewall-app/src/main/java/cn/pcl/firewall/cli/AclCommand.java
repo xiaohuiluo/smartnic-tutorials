@@ -33,11 +33,11 @@ public class AclCommand extends AbstractShellCommand
             required = false, multiValued = false)
     String ethType = null;
 
-    @Option(name = "-s", aliases = "--ethSrc", description = "Ethernet source MAC address of package (support: mac)",
+    @Option(name = "-s", aliases = "--ethSrc", description = "Ethernet source MAC address of package (support mac format: 0x54bf64a19f8b)",
             required = false, multiValued = false)
     String srcMac = null;
 
-    @Option(name = "-d", aliases = "--ethDst", description = "Ethernet dest MAC address of package (support: mac)",
+    @Option(name = "-d", aliases = "--ethDst", description = "Ethernet dest MAC address of package (support mac format: 0x54bf64a19f8b)",
             required = false, multiValued = false)
     String dstMac = null;
 
@@ -49,11 +49,11 @@ public class AclCommand extends AbstractShellCommand
             required = false, multiValued = false)
     String protocol = null;
 
-    @Option(name = "--ipSrc", description = "Source IP of package (support: ipv4 address)",
+    @Option(name = "--ipSrc", description = "Source IP of package (support ipv4 address: 192.168.10.1)",
             required = false, multiValued = false)
     String srcIp = null;
 
-    @Option(name = "--ipDst", description = "Dest IP of package (support: ipv4 address)",
+    @Option(name = "--ipDst", description = "Dest IP of package (support ipv4 address: 192.168.10.2)",
             required = false, multiValued = false)
     String dstIp = null;
 
@@ -66,7 +66,7 @@ public class AclCommand extends AbstractShellCommand
     String dstPort = null;
 
     private static final String STRING_FORMAT = "%s";
-    private static final String ACT_STRING_FORMAT = "| %s | %-6s | %-11s | %-22s | %-22s | %-7s | %-8s | %-15s | %-15s |  %-5s  |  %-5s  |";
+    private static final String ACT_STRING_FORMAT = "| %s | %-6s | %-11s | %-14s | %-14s | %-7s | %-8s | %-15s | %-15s |  %-5s  |  %-5s  |";
 
     @Override
     protected void doExecute() throws Exception {
@@ -93,9 +93,9 @@ public class AclCommand extends AbstractShellCommand
 
     private void showAclConfig() {
         FirewallService firewallService = AbstractShellCommand.get(FirewallService.class);
-        print(STRING_FORMAT, "--------------------------------------------------------------------------------------------------------------------------------------------------------------");
-        print(STRING_FORMAT, "|  ID  | Action | IngressPort |         SrcMac         |         DstMac         | EthType | Protocol |      SrcIp      |       DstIp     | SrcPort | DstPort |");
-        print(STRING_FORMAT, "--------------------------------------------------------------------------------------------------------------------------------------------------------------");
+        print(STRING_FORMAT, "---------------------------------------------------------------------------------------------------------------------------------------------");
+        print(STRING_FORMAT, "|  ID  | Action | IngressPort |     SrcMac     |     DstMac     | EthType | Protocol |      SrcIp      |       DstIp     | SrcPort | DstPort |");
+        print(STRING_FORMAT, "---------------------------------------------------------------------------------------------------------------------------------------------");
         Iterable<AclConfig> aclConfigs = firewallService.getAclConfigs(deviceId);
         for (AclConfig config : aclConfigs) {
             print(ACT_STRING_FORMAT, config.getId(), config.getAction(),
@@ -109,7 +109,7 @@ public class AclCommand extends AbstractShellCommand
                     getString(config.getSrcPort()),
                     getString(config.getDstPort()));
         }
-        print(STRING_FORMAT, "--------------------------------------------------------------------------------------------------------------------------------------------------------------");
+        print(STRING_FORMAT, "---------------------------------------------------------------------------------------------------------------------------------------------");
 
     }
 
