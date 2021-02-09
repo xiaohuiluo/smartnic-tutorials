@@ -554,15 +554,6 @@ public class FirewallManager implements FirewallService {
                                 log.info("Success to design load to nic {}", nfpNic);
                             }
 
-                            // test add flow rule
-//                            response = addFlowRule(nfpNic.getRteHost(), nfpNic.getRtePort());
-//                            if (response.isResult()) {
-//                                log.info("Success add flow rule, result = {}", response.getMessage());
-//                            }
-//                            else {
-//                                log.error("Failed add flow rule, error = {}", response.getMessage());
-//                            }
-
                         } else {
                             log.error("Failed to add device for nic {}", nfpNic);
                         }
@@ -615,7 +606,7 @@ public class FirewallManager implements FirewallService {
 //            }
             NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId.toString());
             if (device != null) {
-                if (device != null && rteCliController.connectNic(device.getRteHost(), device.getRtePort())) {
+                if (rteCliController.designLoad(device.getRteHost(), device.getRtePort(), device.getNffwPath(), device.getDesignPath(), device.getP4cfgPath()).isResult()) {
                     return true;
                 }
             }
