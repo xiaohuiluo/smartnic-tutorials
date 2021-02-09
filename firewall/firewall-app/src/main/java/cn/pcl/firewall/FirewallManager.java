@@ -113,6 +113,15 @@ public class FirewallManager implements FirewallService {
 
     public static final String UNKNOWN = "UNKNOWN";
 
+
+    private static final String NUMBER = "number";
+    private static final String NAME = "name";
+    private static final String ENABLED = "enabled";
+    private static final String REMOVED = "removed";
+    private static final String TYPE = "type";
+    private static final String SPEED = "speed";
+    private static final String ANNOTATIONS = "annotations";
+
     private ApplicationId appId;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
@@ -450,15 +459,63 @@ public class FirewallManager implements FirewallService {
         return String.format("0x%08x", ip4Address.toInt());
     }
 
-    private class InternalConfigListener implements NetworkConfigListener {
 
-        private static final String NUMBER = "number";
-        private static final String NAME = "name";
-        private static final String ENABLED = "enabled";
-        private static final String REMOVED = "removed";
-        private static final String TYPE = "type";
-        private static final String SPEED = "speed";
-        private static final String ANNOTATIONS = "annotations";
+    private void updatePortsDesc(NfpNicDevice nfpNic, DeviceId deviceId) {
+        // update ports
+        String ports = rteCliController.getNicPorts(nfpNic.getRteHost(), nfpNic.getRtePort());
+        log.debug("get nfp nic ports={}", ports);
+        try {
+            List<PortBean> portList = OBJECT_MAPPER.readValue(ports, new TypeReference<List<PortBean>>(){});
+            if (!portList.isEmpty()) {
+                ObjectNode portsJson = OBJECT_MAPPER.createObjectNode();
+                for (PortBean bean : portList) {
+
+                    HashMap<String,String> portAnnoMap = Maps.newHashMap();
+                    portAnnoMap.put("info", bean.getInfo());
+                    portAnnoMap.put("token", bean.getToken());
+                    SparseAnnotations portAnnotations = DefaultAnnotations.builder()
+                            .putAll(portAnnoMap)
+                            .build();
+
+                    String portName = bean.getId() + "";
+                    JsonNode portJsonNode = OBJECT_MAPPER.createObjectNode()
+                            .put(NUMBER, bean.getId())
+                            .put(NAME, portName)
+                            .put(ENABLED, true)
+                            .put(REMOVED, false)
+                            .put(TYPE, Port.Type.COPPER.toString())
+                            .put(SPEED, getPortSpeed(bean))
+                            .put(ANNOTATIONS, portAnnotations.toString());
+
+                    portsJson.set(portName, portJsonNode);
+                }
+
+                networkConfigService.applyConfig(deviceId, PortDescriptionsConfig.class, portsJson);
+
+                PortDescriptionsConfig portConfig = networkConfigService.getConfig(deviceId, PortDescriptionsConfig.class);
+                log.debug("deviceId={} netcfg port config = {}", deviceId, portConfig.portDescriptions());
+            }
+        }
+        catch (IOException e) {
+            log.warn("Failed to get nic ports of deviceId={}, exception={}", deviceId, e);
+        }
+    }
+
+    private long getPortSpeed(PortBean bean) {
+        if (bean.getInfo().contains("10G")) {
+            return 10000;
+        }
+        else if(bean.getInfo().contains("25G")) {
+            return 25000;
+        }
+        else if(bean.getInfo().contains("40G")) {
+            return 40000;
+        }
+
+        return 1000;
+    }
+
+    private class InternalConfigListener implements NetworkConfigListener {
 
         FirewallManager firewallManager;
 
@@ -499,45 +556,6 @@ public class FirewallManager implements FirewallService {
                                             NETRONOME, NFP_HW_VERSION, NFP_SW_VERSION, UNKNOWN,
                                             new ChassisId(chassisNumber.getAndIncrement()), true, annotations);
 
-                            // update ports
-                            String ports = rteCliController.getNicPorts(nfpNic.getRteHost(), nfpNic.getRtePort());
-                            log.debug("get nfp nic ports={}", ports);
-                            try {
-                                List<PortBean> portList = OBJECT_MAPPER.readValue(ports, new TypeReference<List<PortBean>>(){});
-                                if (!portList.isEmpty()) {
-                                    ObjectNode portsJson = OBJECT_MAPPER.createObjectNode();
-                                    for (PortBean bean : portList) {
-
-                                        HashMap<String,String> portAnnoMap = Maps.newHashMap();
-                                        portAnnoMap.put("info", bean.getInfo());
-                                        portAnnoMap.put("token", bean.getToken());
-                                        SparseAnnotations portAnnotations = DefaultAnnotations.builder()
-                                                .putAll(portAnnoMap)
-                                                .build();
-
-                                        String portName = bean.getId() + "";
-                                        JsonNode portJsonNode = OBJECT_MAPPER.createObjectNode()
-                                                .put(NUMBER, bean.getId())
-                                                .put(NAME, portName)
-                                                .put(ENABLED, true)
-                                                .put(REMOVED, false)
-                                                .put(TYPE, Port.Type.COPPER.toString())
-                                                .put(SPEED, getPortSpeed(bean))
-                                                .put(ANNOTATIONS, portAnnotations.toString());
-
-                                        portsJson.set(portName, portJsonNode);
-                                    }
-
-                                    networkConfigService.applyConfig(deviceId, PortDescriptionsConfig.class, portsJson);
-
-                                    PortDescriptionsConfig portConfig = networkConfigService.getConfig(deviceId, PortDescriptionsConfig.class);
-                                    log.debug("deviceId={} netcfg port config = {}", deviceId, portConfig.portDescriptions());
-                                }
-                            }
-                            catch (IOException e) {
-                                log.warn("Failed to get nic ports of deviceId={}, exception={}", deviceId, e);
-                            }
-
                             deviceProviderService.deviceConnected(deviceId, description);
                             NodeId localNode = clusterService.getLocalNode().id();
                             mastershipService.setRole(localNode, deviceId, MASTER);
@@ -551,6 +569,7 @@ public class FirewallManager implements FirewallService {
                                 return;
                             }
                             else {
+                                updatePortsDesc(nfpNic, deviceId);
                                 log.info("Success to design load to nic {}", nfpNic);
                             }
 
@@ -565,20 +584,6 @@ public class FirewallManager implements FirewallService {
                 }
 
             }
-        }
-
-        private long getPortSpeed(PortBean bean) {
-            if (bean.getInfo().contains("10G")) {
-                return 10000;
-            }
-            else if(bean.getInfo().contains("25G")) {
-                return 25000;
-            }
-            else if(bean.getInfo().contains("40G")) {
-                return 40000;
-            }
-
-            return 1000;
         }
     }
 
@@ -607,6 +612,7 @@ public class FirewallManager implements FirewallService {
             NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId.toString());
             if (device != null) {
                 if (rteCliController.designLoad(device.getRteHost(), device.getRtePort(), device.getNffwPath(), device.getDesignPath(), device.getP4cfgPath()).isResult()) {
+                    updatePortsDesc(device, deviceId);
                     return true;
                 }
             }

@@ -195,7 +195,7 @@ public class NfpRteCliController {
         try {
             StatusBean bean = OBJECT_MAPPER.readValue(statusMsg, StatusBean.class);
             if (bean.isIs_loaded()) {
-                log.warn("rteHost={}, rtePort={} design is loaded", rteHost, rtePort);
+                log.debug("rteHost={}, rtePort={} design is loaded", rteHost, rtePort);
                 return new RteCliResponse(true, "nfp nic is already design loaded");
             }
         }
