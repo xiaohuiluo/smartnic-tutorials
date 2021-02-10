@@ -306,11 +306,11 @@ public class NfpRteCliController {
                 TABLES, ADD, TABLE_ARG, table, RULE_NAME_ARG, ruleName, RULE_MATCH_ARG, "'" + match + "'", RULE_ACTION_ARG, "'" + action + "'");
 
         if (priority > 0) {
-            cmd = buildCmd(cmd, priority + "");
+            cmd = buildCmd(cmd, RULE_PRIORITY_ARG, priority + "");
         }
 
         if (timeout > 0) {
-            cmd = buildCmd(cmd, timeout + "");
+            cmd = buildCmd(cmd, RULE_TIMEOUT_ARG, timeout + "");
         }
 
         CommandLine commandLine = new CommandLine(SHELL);
