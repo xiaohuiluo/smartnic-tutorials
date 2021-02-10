@@ -66,7 +66,7 @@ public class AclCommand extends AbstractShellCommand
     String dstPort = null;
 
     private static final String STRING_FORMAT = "%s";
-    private static final String ACT_STRING_FORMAT = "| %s | %-6s | %-11s | %-17s | %-17s | %-7s | %-8s | %-15s | %-15s |  %-5s  |  %-5s  |";
+    private static final String ACT_STRING_FORMAT = "| %s | %-11s | %-17s | %-17s | %-7s | %-8s | %-15s | %-15s |  %-5s  |  %-5s  | %-6s |";
 
     @Override
     protected void doExecute() throws Exception {
@@ -93,12 +93,15 @@ public class AclCommand extends AbstractShellCommand
 
     private void showAclConfig() {
         FirewallService firewallService = AbstractShellCommand.get(FirewallService.class);
-        print(STRING_FORMAT, "----------------------------------------------------------------------------------------------------------------------------------------------------");
-        print(STRING_FORMAT, "|   ID   | Action | IngressPort |       SrcMac      |       DstMac      | EthType | Protocol |      SrcIp      |       DstIp     | SrcPort | DstPort |");
-        print(STRING_FORMAT, "----------------------------------------------------------------------------------------------------------------------------------------------------");
+        print(STRING_FORMAT, "========================================================================================================================================================");
+        print(STRING_FORMAT, "|    ID    |                                                             MATCH                                                                | ACTION |");
+
+        print(STRING_FORMAT, "========================================================================================================================================================");
+        print(STRING_FORMAT, "|    ID    | IngressPort |       SrcMac      |       DstMac      | EthType | Protocol |      SrcIp      |       DstIp     | SrcPort | DstPort | Action |");
+        print(STRING_FORMAT, "--------------------------------------------------------------------------------------------------------------------------------------------------------");
         Iterable<AclConfig> aclConfigs = firewallService.getAclConfigs(deviceId);
         for (AclConfig config : aclConfigs) {
-            print(ACT_STRING_FORMAT, config.getId(), config.getAction(),
+            print(ACT_STRING_FORMAT, config.getId(),
                     getString(config.getIngressPort()),
                     getString(config.getSrcMac()),
                     getString(config.getDstMac()),
@@ -107,9 +110,10 @@ public class AclCommand extends AbstractShellCommand
                     getString(config.getSrcIp()),
                     getString(config.getDstIp()),
                     getString(config.getSrcPort()),
-                    getString(config.getDstPort()));
+                    getString(config.getDstPort()),
+                    config.getAction());
         }
-        print(STRING_FORMAT, "----------------------------------------------------------------------------------------------------------------------------------------------------");
+        print(STRING_FORMAT, "--------------------------------------------------------------------------------------------------------------------------------------------------------");
 
     }
 

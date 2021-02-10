@@ -38,7 +38,7 @@ public class FwdCommand extends AbstractShellCommand
     String dstMac = null;
 
     private static final String STRING_FORMAT = "%s";
-    private static final String FWD_STRING_FORMAT = "| %s | %-6s | %-11s | %-17s | %-7s |";
+    private static final String FWD_STRING_FORMAT = "| %s | %-11s | %-17s | %-8s | %-7s |";
 
     @Override
     protected void doExecute() throws Exception {
@@ -65,9 +65,11 @@ public class FwdCommand extends AbstractShellCommand
 
     private void showFwdConfig() {
         FirewallService firewallService = AbstractShellCommand.get(FirewallService.class);
-        print(STRING_FORMAT, "----------------------------------------------------------------");
-        print(STRING_FORMAT, "|   ID   | IngressPort |      DstMac     |     Action  | Output |");
-        print(STRING_FORMAT, "----------------------------------------------------------------");
+        print(STRING_FORMAT, "===================================================================");
+        print(STRING_FORMAT, "|    ID    |                MATCH            |       ACTION       |");
+        print(STRING_FORMAT, "===================================================================");
+        print(STRING_FORMAT, "|    ID    | IngressPort |       DstMac      |  Action  | Output  |");
+        print(STRING_FORMAT, "-------------------------------------------------------------------");
         Iterable<FwdConfig> fwdConfigs = firewallService.getFwdConfigs(deviceId);
         for (FwdConfig config : fwdConfigs) {
             print(FWD_STRING_FORMAT, config.getId(),
@@ -76,7 +78,7 @@ public class FwdCommand extends AbstractShellCommand
                     config.getAction(),
                     getString(config.getOutput()));
         }
-        print(STRING_FORMAT, "-----------------------------------------------------------------");
+        print(STRING_FORMAT, "-------------------------------------------------------------------");
 
     }
 

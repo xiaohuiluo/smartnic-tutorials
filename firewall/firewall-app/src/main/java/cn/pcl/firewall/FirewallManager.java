@@ -623,7 +623,7 @@ public class FirewallManager implements FirewallService {
 
     private String getHexMac(String mac) {
         MacAddress macAddress = MacAddress.valueOf(mac);
-        return String.format("0x%s", macAddress.toStringNoColon());
+        return String.format("0x%s", macAddress.toStringNoColon().toLowerCase());
     }
 
     private String getHexIpv4(String ip) {
