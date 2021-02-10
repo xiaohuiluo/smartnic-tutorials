@@ -459,8 +459,11 @@ public class FirewallManager implements FirewallService {
 
         // action
         Action fwdAction;
+
+        Action.ActionParam actionParam = new Action.ActionParam(P4Constants.ACT_PARAM_PORT, output);
+        List<Action.ActionParam> actionParamList = Lists.newArrayList(actionParam);
         if ("fwd".equalsIgnoreCase(action)) {
-            fwdAction = new Action(P4Constants.ACT_FWD);
+            fwdAction = new Action(P4Constants.ACT_FWD, actionParamList);
         } else if ("drop".equalsIgnoreCase(action)) {
             fwdAction = new Action(P4Constants.ACT_DROP);
         }

@@ -38,4 +38,7 @@ public interface P4Constants {
     String ACT_ALLOW = "ingress::allow";
     String ACT_DROP = "ingress::drop";
     String ACT_FWD = "ingress::fwd";
+
+    String ACT_PARAM_PORT = "port";
+
 }
