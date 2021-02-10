@@ -451,7 +451,7 @@ public class FirewallManager implements FirewallService {
     }
 
     @Override
-    public CmdResult addFwdFlowRule(String deviceId, String action, String output, String ingressPort, String dstMac) {
+    public CmdResult addFwdFlowRule(String deviceId, String ingressPort, String dstMac, String action, String output) {
         NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId);
         if (device == null) {
             return new CmdResult(false, "nfp nic device = " + deviceId + " is not exist");
