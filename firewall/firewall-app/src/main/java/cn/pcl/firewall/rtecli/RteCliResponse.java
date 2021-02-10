@@ -29,4 +29,12 @@ public class RteCliResponse {
     public void setMessage(String message) {
         this.message = message;
     }
+
+    @Override
+    public String toString() {
+        return "RteCliResponse{" +
+                "result=" + result +
+                ", message='" + message + '\'' +
+                '}';
+    }
 }

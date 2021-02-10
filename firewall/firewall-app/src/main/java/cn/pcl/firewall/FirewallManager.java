@@ -18,6 +18,7 @@ package cn.pcl.firewall;
 import cn.pcl.firewall.common.AclConfig;
 import cn.pcl.firewall.common.CmdResult;
 import cn.pcl.firewall.common.Constants;
+import cn.pcl.firewall.common.FwdConfig;
 import cn.pcl.firewall.common.IntPool;
 import cn.pcl.firewall.common.P4Constants;
 import cn.pcl.firewall.config.NfpNicCfg;
@@ -113,6 +114,10 @@ public class FirewallManager implements FirewallService {
 
     public static final String UNKNOWN = "UNKNOWN";
 
+    public static final String ACL_RULE_NAME_HEADER = "ACL-";
+
+    public static final String FWD_RULE_NAME_HEADER = "FWD-";
+
 
     private static final String NUMBER = "number";
     private static final String NAME = "name";
@@ -171,6 +176,10 @@ public class FirewallManager implements FirewallService {
 
     private ConsistentMap<String, List<AclConfig>> aclConfigMap;
 
+    private Map<String, IntPool> fwdIdPoolMap = new ConcurrentHashMap<>();
+
+    private ConsistentMap<String, List<FwdConfig>> fwdConfigMap;
+
     private AtomicLong chassisNumber = new AtomicLong(0);
 
     private NfpRteCliController rteCliController = new NfpRteCliController();
@@ -209,10 +218,30 @@ public class FirewallManager implements FirewallService {
         aclConfigMap.asJavaMap().forEach( (deviceId, acls) -> {
             IntPool idPool = new IntPool(1000, 5000);
             for (AclConfig acl : acls) {
-                idPool.markStatus(Integer.parseInt(acl.getId()), true);
+                idPool.markStatus(aclRuleId(acl.getId()), true);
             }
 
             aclIdPoolMap.put(deviceId, idPool);
+        });
+
+        fwdConfigMap = storageService.<String, List<FwdConfig>>consistentMapBuilder()
+                .withName("fwd-config-map")
+                .withApplicationId(appId)
+                .withPurgeOnUninstall()
+                .withSerializer(Serializer.using(
+                        new KryoNamespace.Builder()
+                                .register(KryoNamespaces.API)
+                                .register(FwdConfig.class)
+                                .build()))
+                .build();
+
+        fwdConfigMap.asJavaMap().forEach( (deviceId, fwds) -> {
+            IntPool idPool = new IntPool(1000, 2000);
+            for (FwdConfig fwd : fwds) {
+                idPool.markStatus(fwdRuleId(fwd.getId()), true);
+            }
+
+            fwdIdPoolMap.put(deviceId, idPool);
         });
 
         log.info("Started app {}", APP_NAME);
@@ -358,10 +387,10 @@ public class FirewallManager implements FirewallService {
         }
 
         int aclId = aclIdPool.acquire();
-        String aclIdStr = aclId + "";
-        RteCliResponse response = rteCliController.addFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, aclIdStr, matchList, aclAction);
+        String ruleName = aclRuleName(aclId);
+        RteCliResponse response = rteCliController.addFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, ruleName, matchList, aclAction);
         if (response.isResult()) {
-            AclConfig config = new AclConfig(aclIdStr, action.toLowerCase(), ingressPort, ethType, srcMac, dstMac, protocol, srcIp, dstIp, srcPort, dstPort);
+            AclConfig config = new AclConfig(ruleName, action.toLowerCase(), ingressPort, ethType, srcMac, dstMac, protocol, srcIp, dstIp, srcPort, dstPort);
             saveAclConfig(deviceId, config);
             log.info("Success to Add acl={} to deviceId={}", config, deviceId);
             return new CmdResult(true, "Success to add acl = " + config);
@@ -391,7 +420,7 @@ public class FirewallManager implements FirewallService {
             if (config.getId().equals(aclId)) {
                 RteCliResponse response = rteCliController.deleteFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_ACL, aclId);
                 if (response.isResult()) {
-                    aclIdPoolMap.get(deviceId).release(Integer.parseInt(aclId));
+                    aclIdPoolMap.get(deviceId).release(aclRuleId(aclId));
                     aclConfigList.remove(config);
                     aclConfigMap.put(deviceId, aclConfigList);
                     return new CmdResult(true, "Success to delete acl=" + config);
@@ -402,6 +431,132 @@ public class FirewallManager implements FirewallService {
         }
 
         return new CmdResult(false, "No such acl id=" + aclId);
+    }
+
+    @Override
+    public Collection<FwdConfig> getFwdConfigs(String deviceId) {
+        NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId);
+        if (device == null) {
+            return Sets.newHashSet();
+        }
+
+        List<FwdConfig> fwdConfigList = fwdConfigMap.asJavaMap().get(deviceId);
+
+        if (fwdConfigList == null) {
+            return Sets.newHashSet();
+        }
+        else {
+            return fwdConfigMap.asJavaMap().get(deviceId);
+        }
+    }
+
+    @Override
+    public CmdResult addFwdFlowRule(String deviceId, String action, String output, String ingressPort, String dstMac) {
+        NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId);
+        if (device == null) {
+            return new CmdResult(false, "nfp nic device = " + deviceId + " is not exist");
+        }
+
+        // action
+        Action fwdAction;
+        if ("fwd".equalsIgnoreCase(action)) {
+            fwdAction = new Action(P4Constants.ACT_FWD);
+        } else if ("drop".equalsIgnoreCase(action)) {
+            fwdAction = new Action(P4Constants.ACT_DROP);
+        }
+        else {
+            return new CmdResult(false, "action = " + action + " is invalid");
+        }
+
+        // match
+        List<Match> matchList = Lists.newArrayList();
+        if (ingressPort != null && !ingressPort.isEmpty()) {
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_INGRESS_PORT, ingressPort, P4Constants.MASK_16_BITS);
+            matchList.add(match);
+        }
+
+        if (dstMac != null && !dstMac.isEmpty()) {
+            String dstMacHex = getHexMac(dstMac);
+            Match match = Match.MatchFactory.createTernaryMatch(P4Constants.MTH_ETH_DST, dstMacHex, P4Constants.MASK_48_BITS);
+            matchList.add(match);
+        }
+
+        if (matchList.isEmpty()) {
+            log.error("Match can not be empty");
+            return new CmdResult(false, "Error: match is empty");
+        }
+
+        IntPool fwdIdPool;
+        if (fwdIdPoolMap.isEmpty()) {
+            fwdIdPool = new IntPool(1000, 2000);
+            fwdIdPoolMap.put(deviceId, fwdIdPool);
+        }
+        else {
+            fwdIdPool = fwdIdPoolMap.get(deviceId);
+        }
+
+        int fwdId = fwdIdPool.acquire();
+        String ruleName = fwdRuleName(fwdId);
+        RteCliResponse response = rteCliController.addFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_FWD, ruleName, matchList, fwdAction);
+        if (response.isResult()) {
+            FwdConfig config = new FwdConfig(ruleName, ingressPort, dstMac, action, output);
+            saveFwdConfig(deviceId, config);
+            log.info("Success to Add fwd={} to deviceId={}", config, deviceId);
+            return new CmdResult(true, "Success to add fwd = " + config);
+        }
+        else {
+            fwdIdPool.release(fwdId);
+            log.error("Failed to add fwd to deviceId={}", deviceId);
+            return new CmdResult(false, response.getMessage());
+        }
+    }
+
+    @Override
+    public CmdResult deleteFwdFlowRule(String deviceId, String fwdId) {
+        NfpNicDevice device = nfpNicMap.asJavaMap().get(deviceId);
+        if (device == null) {
+            return new CmdResult(false, "nfp nic device = " + deviceId + " is not exist");
+        }
+
+        List<FwdConfig> fwdConfigList = fwdConfigMap.asJavaMap().get(deviceId);
+
+        if (fwdConfigList == null || fwdConfigList.isEmpty()) {
+            return new CmdResult(false, "No such fwd id=" + fwdId);
+        }
+
+        // find fwd
+        for (FwdConfig config : fwdConfigList) {
+            if (config.getId().equals(fwdId)) {
+                RteCliResponse response = rteCliController.deleteFlowRule(device.getRteHost(), device.getRtePort(), P4Constants.TBL_FWD, fwdId);
+                if (response.isResult()) {
+                    fwdIdPoolMap.get(deviceId).release(fwdRuleId(fwdId));
+                    fwdConfigList.remove(config);
+                    fwdConfigMap.put(deviceId, fwdConfigList);
+                    return new CmdResult(true, "Success to delete fwd=" + config);
+                } else {
+                    return new CmdResult(false, "Failed to delete fwd=" + config + ", error=" + response.getMessage());
+                }
+            }
+        }
+
+        return new CmdResult(false, "No such fwd id=" + fwdId);
+    }
+
+
+    private String aclRuleName(int aclId) {
+        return ACL_RULE_NAME_HEADER + aclId;
+    }
+
+    private int aclRuleId(String aclRuleName) {
+        return Integer.parseInt(aclRuleName.replaceAll(ACL_RULE_NAME_HEADER, ""));
+    }
+
+    private String fwdRuleName(int fwdId) {
+        return FWD_RULE_NAME_HEADER + fwdId;
+    }
+
+    private int fwdRuleId(String fwdRuleName) {
+        return Integer.parseInt(fwdRuleName.replaceAll(FWD_RULE_NAME_HEADER, ""));
     }
 
     private void saveAclConfig(String deviceId, AclConfig aclConfig) {
@@ -415,6 +570,20 @@ public class FirewallManager implements FirewallService {
 
             aclConfigList.add(aclConfig);
             aclConfigMap.put(deviceId, aclConfigList);
+        }
+    }
+
+    private void saveFwdConfig(String deviceId, FwdConfig fwdConfig) {
+        List<FwdConfig> fwdConfigList = fwdConfigMap.asJavaMap().get(deviceId);
+        if (fwdConfigList == null || fwdConfigList.isEmpty()) {
+            fwdConfigList = Lists.newArrayList(fwdConfig);
+            fwdConfigMap.put(deviceId, fwdConfigList);
+        }
+        else {
+            fwdConfigList.removeIf(config -> config.getId().equals(fwdConfig.getId()));
+
+            fwdConfigList.add(fwdConfig);
+            fwdConfigMap.put(deviceId, fwdConfigList);
         }
     }
 

@@ -21,7 +21,7 @@ public class AclCommand extends AbstractShellCommand
             required = true, multiValued = false)
     String deviceId = null;
 
-    @Argument(index = 2, name = "actionOrId", description = "action/id of acl, action for add and id for delete (action support: deny/allow, id support: 1000~3000)",
+    @Argument(index = 2, name = "actionOrId", description = "action/id of acl, action for add and id for delete (action support: deny/allow, id support: 1000~5000)",
             required = false, multiValued = false)
     String actionOrId = null;
 
@@ -94,7 +94,7 @@ public class AclCommand extends AbstractShellCommand
     private void showAclConfig() {
         FirewallService firewallService = AbstractShellCommand.get(FirewallService.class);
         print(STRING_FORMAT, "----------------------------------------------------------------------------------------------------------------------------------------------------");
-        print(STRING_FORMAT, "|  ID  | Action | IngressPort |       SrcMac      |       DstMac      | EthType | Protocol |      SrcIp      |       DstIp     | SrcPort | DstPort |");
+        print(STRING_FORMAT, "|   ID   | Action | IngressPort |       SrcMac      |       DstMac      | EthType | Protocol |      SrcIp      |       DstIp     | SrcPort | DstPort |");
         print(STRING_FORMAT, "----------------------------------------------------------------------------------------------------------------------------------------------------");
         Iterable<AclConfig> aclConfigs = firewallService.getAclConfigs(deviceId);
         for (AclConfig config : aclConfigs) {
