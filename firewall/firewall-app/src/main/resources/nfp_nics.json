@@ -9,7 +9,7 @@
           "rte_port": "20206",
           "nffw_path": "/home/hui/Projects/hui/smartnic-tutorials/firewall/p4src/firewall.nffw",
           "design_path": "/home/hui/Projects/hui/smartnic-tutorials/firewall/p4src/pif_design.json",
-          "p4cfg_path": "/home/hui/Projects/hui/smartnic-tutorials/firewall/p4src/firewall.p4cfg"
+          "p4cfg_path": ""
         }
       ]
     }
