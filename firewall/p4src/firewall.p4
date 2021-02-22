@@ -192,11 +192,6 @@ control IngressPipeImpl(inout headers hdr,
     
     direct_counter(CounterType.packets_and_bytes) t_fwd_counter;
 
-    action drop() {
-        mark_to_drop();
-        t_fwd_counter.count();
-    }
-
     action fwd(port_t port) {
         standard_metadata.egress_spec = port;
         t_fwd_counter.count();
@@ -209,9 +204,8 @@ control IngressPipeImpl(inout headers hdr,
         }
         actions = {
             fwd;
-            drop;
         }
-        default_action = drop();
+        default_action = fwd(0);
         counters = t_fwd_counter;
         size = 1024;
         
@@ -229,12 +223,7 @@ control IngressPipeImpl(inout headers hdr,
             }
         }
 
-        if (t_fwd.apply().hit) {
-            return;
-        }
-        else {
-            standard_metadata.egress_spec = 0;
-        }
+        t_fwd.apply();
 
     }
 }
