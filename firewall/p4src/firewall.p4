@@ -229,7 +229,12 @@ control IngressPipeImpl(inout headers hdr,
             }
         }
 
-        t_fwd.apply();
+        if (t_fwd.apply().hit) {
+            return;
+        }
+        else {
+            standard_metadata.egress_spec = 0;
+        }
 
     }
 }
