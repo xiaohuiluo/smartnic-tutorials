@@ -5,7 +5,7 @@
         {
           "dp_id": "rtecli:nfp-nic1",
           "driver": "rtecli",
-          "rte_host": "192.168.67.143",
+          "rte_host": "172.16.30.15",
           "rte_port": "20206",
           "nffw_path": "/home/hui/Projects/hui/smartnic-tutorials/firewall/p4src/firewall.nffw",
           "design_path": "/home/hui/Projects/hui/smartnic-tutorials/firewall/p4src/pif_design.json",
